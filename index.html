@@ -2320,8 +2320,7 @@ input::placeholder{color:#5d6e80;}
     retryTimer: null,
     snapshotAck: false,
     snapshotTimer: null,
-    stationLoaded: false,
-    snapshotRetryTimer: null
+    submitRetryTimer: null
   };
 
   function nouveauPeerId() {
@@ -2371,6 +2370,12 @@ input::placeholder{color:#5d6e80;}
     return 'P2P · hors ligne';
   }
 
+  function posteOppose(p) {
+    if (p === 'tech') return 'equipage';
+    if (p === 'equipage') return 'tech';
+    return null;
+  }
+
   function rafraichirBarre() {
     try { barre(); } catch (e) { /* démarrage : barre pas encore prête */ }
   }
@@ -2389,35 +2394,6 @@ input::placeholder{color:#5d6e80;}
     try { net.conn.send(msg); return true; } catch (e) { return false; }
   }
 
-  function p2pStopSnapshotRetry() {
-    try { if (net.snapshotRetryTimer) clearInterval(net.snapshotRetryTimer); } catch (e) {}
-    net.snapshotRetryTimer = null;
-  }
-
-  function p2pRequestSnapshot() {
-    if (net.role !== 'guest' || net.stationLoaded || !net.connected) return;
-    p2pSend({ type: 'snapshot_request', poste: save.poste || null, protocol: 5 });
-  }
-
-  function p2pRequestStation() {
-    if (net.role !== 'guest' || !net.connected) return;
-    p2pSend({ type: 'guest_ready', poste: save.poste || null, protocol: 6 });
-    p2pRequestSnapshot();
-  }
-
-  function p2pScheduleSnapshotRetry() {
-    if (net.role !== 'guest' || net.stationLoaded || !net.connected) return;
-    p2pStopSnapshotRetry();
-    p2pRequestSnapshot();
-    net.snapshotRetryTimer = setInterval(function () {
-      if (net.role !== 'guest' || net.stationLoaded || !net.connected) {
-        p2pStopSnapshotRetry();
-        return;
-      }
-      p2pRequestSnapshot();
-    }, 900);
-  }
-
   function p2pScheduleGuestRetry(delay) {
     if (net.role !== 'guest' || !save.hostPeerId || net.connected) return;
     try { if (net.retryTimer) clearTimeout(net.retryTimer); } catch (e) {}
@@ -2431,17 +2407,16 @@ input::placeholder{color:#5d6e80;}
   }
 
   function p2pCloseConn() {
-    p2pStopSnapshotRetry();
     try { if (net.conn) net.conn.close(); } catch (e) {}
     net.conn = null;
     net.connected = false;
     net.connecting = false;
-    net.stationLoaded = false;
   }
 
   function p2pDestroy() {
     try { if (net.retryTimer) clearTimeout(net.retryTimer); } catch (e) {}
     try { if (net.snapshotTimer) clearInterval(net.snapshotTimer); } catch (e) {}
+    p2pStopSubmitRetry();
     net.retryTimer = null;
     net.snapshotTimer = null;
     net.snapshotAck = false;
@@ -2522,7 +2497,42 @@ input::placeholder{color:#5d6e80;}
 
   function roundSnapshot() {
     initialiserRound(false);
-    return round.key ? { key: round.key, hostReady: net.role === 'host' ? !!round.localSubmitted : !!round.remoteSubmitted } : null;
+    if (!round.key) return null;
+    var hostValues = [], guestValues = [];
+    if (cr) {
+      var hostRole = save.p2pRole === 'demo' ? null : save.poste;
+      var guestRole = net.remotePoste || null;
+      if (hostRole) indicesDuRole(cr, hostRole).forEach(function (i) { hostValues.push({ i:i, v:round.localDec[i] }); });
+      if (guestRole && round.remoteDec) indicesDuRole(cr, guestRole).forEach(function (i) { guestValues.push({ i:i, v:round.remoteDec[i] }); });
+    }
+    return {
+      key: round.key,
+      hostReady: net.role === 'host' ? !!round.localSubmitted : !!round.remoteSubmitted,
+      guestReady: net.role === 'host' ? !!round.remoteSubmitted : !!round.localSubmitted,
+      hostPoste: save.p2pRole === 'host' ? save.poste : (net.remotePoste || null),
+      guestPoste: save.p2pRole === 'guest' ? save.poste : (net.remotePoste || null),
+      hostValues: hostValues, guestValues: guestValues
+    };
+  }
+
+  function appliquerBrouillonDistant(values, role, key) {
+    if (!cr || key !== roundKey() || !Array.isArray(values) || !role) return false;
+    var expected = indicesDuRole(cr, role);
+    var base = (round.remoteDec && round.remoteDec.length === cr.defaut.length) ? round.remoteDec.slice() : cr.defaut.slice();
+    var seen = {};
+    for (var i = 0; i < values.length; i++) {
+      var item = values[i];
+      if (!item || expected.indexOf(item.i) < 0 || seen[item.i]) return false;
+      var width = cr.widths[item.i];
+      var max = (1 << width) - 1;
+      if (!Number.isInteger(item.v) || item.v < 0 || item.v > max) return false;
+      seen[item.i] = true;
+      base[item.i] = item.v;
+    }
+    for (var j = 0; j < expected.length; j++) if (!seen[expected[j]]) return false;
+    round.remoteDec = base;
+    round.remotePoste = role;
+    return true;
   }
 
   function sauvegarderPendingLocal() {
@@ -2608,9 +2618,28 @@ input::placeholder{color:#5d6e80;}
   }
 
   function p2pResendPending() {
-    if (net.role !== 'guest' || !net.connected || !save.pendingLocal || !cr) return;
-    if (save.pendingLocal.key !== roundKey() || !save.pendingLocal.submitted) return;
-    p2pSend({ type: 'submit', key: roundKey(), poste: save.poste, values: save.pendingLocal.values });
+    if (net.role !== 'guest' || !net.connected || !save.pendingLocal || !cr) return false;
+    if (save.pendingLocal.key !== roundKey() || !save.pendingLocal.submitted) return false;
+    return p2pSend({ type: 'submit', key: roundKey(), poste: save.poste, values: save.pendingLocal.values });
+  }
+
+  function p2pStartSubmitRetry() {
+    try { if (net.submitRetryTimer) clearInterval(net.submitRetryTimer); } catch (e) {}
+    net.submitRetryTimer = null;
+    if (net.role !== 'guest' || !net.connected) return;
+    net.submitRetryTimer = setInterval(function () {
+      if (!net.connected || !save.pendingLocal || !save.pendingLocal.submitted || !cr || save.pendingLocal.key !== roundKey()) {
+        try { clearInterval(net.submitRetryTimer); } catch (e) {}
+        net.submitRetryTimer = null;
+        return;
+      }
+      p2pResendPending();
+    }, 1400);
+  }
+
+  function p2pStopSubmitRetry() {
+    try { if (net.submitRetryTimer) clearInterval(net.submitRetryTimer); } catch (e) {}
+    net.submitRetryTimer = null;
   }
 
   function p2pSnapshot(extra) {
@@ -2663,11 +2692,11 @@ input::placeholder{color:#5d6e80;}
           net.snapshotTimer = null;
         }, 8000);
       } else {
-        net.stationLoaded = false;
-        p2pSend({ type: 'hello', seed: save.seed || null, poste: save.poste || null, protocol: 6 });
-        p2pRequestStation();
-        p2pScheduleSnapshotRetry();
-        setTimeout(p2pResendPending, 120);
+        p2pSend({ type: 'hello', seed: save.seed || null, poste: save.poste || null, protocol: 4 });
+        setTimeout(function(){
+          try { if (cr && save.poste) { initialiserRound(false); p2pSend({ type:'draft', key:round.key, poste:save.poste, values:roundSubmitValues() }); } } catch (e) {}
+          if (p2pResendPending()) p2pStartSubmitRetry();
+        }, 120);
       }
     });
     conn.on('data', p2pHandleMessage);
@@ -2676,8 +2705,6 @@ input::placeholder{color:#5d6e80;}
       try { if (net.snapshotTimer) clearInterval(net.snapshotTimer); } catch (e) {}
       net.snapshotTimer = null;
       net.snapshotAck = false;
-      if (net.role === 'guest') p2pStopSnapshotRetry();
-      net.stationLoaded = false;
       net.conn = null;
       net.connected = false;
       net.connecting = false;
@@ -2723,7 +2750,6 @@ input::placeholder{color:#5d6e80;}
     net.role = save.p2pRole;
     net.connected = false;
     net.connecting = false;
-    net.stationLoaded = !!save.seed;
 
     try {
       var peerId = net.role === 'host' ? save.hostPeerId : undefined;
@@ -2767,6 +2793,12 @@ input::placeholder{color:#5d6e80;}
     enregistrer();
     if (!save.p2pRole || !net.connected) return;
     p2pSend({ type: 'role', poste: p });
+    try {
+      if (cr) {
+        initialiserRound(false);
+        p2pSend({ type:'draft', key:round.key, poste:save.poste, values:roundSubmitValues() });
+      }
+    } catch (e) {}
   }
 
   function p2pHandleSnapshot(msg) {
@@ -2790,36 +2822,31 @@ input::placeholder{color:#5d6e80;}
       return false;
     }
 
-    net.stationLoaded = true;
-    p2pStopSnapshotRetry();
     p2pSend({ type: 'snapshot_ack', seed: save.seed, stateCode: B.stateCode(save) });
+    if (save.poste && round.key) {
+      p2pSend({ type:'role', poste:save.poste });
+    }
 
     if (save.storySeen === false) {
-      try {
-        rendreIntro();
-        aller('intro');
-      } catch (e) {
-        // L'introduction ne doit jamais bloquer la connexion : on retombe
-        // directement sur le choix du poste.
-        try { rendrePoste(); aller('poste'); } catch (ignore) {}
-      }
+      rendreIntro();
+      aller('intro');
       return true;
     }
 
     initialiserRound(true);
-    if (msg.round && msg.round.key === round.key) round.remoteSubmitted = !!msg.round.hostReady;
-    try {
-      if (!save.poste) {
-        rendrePoste(); aller('poste');
-      } else if (st.fini) {
-        rendreFin(); aller('fin');
-      } else {
-        rendreHub(); aller('hub');
-      }
-      p2pSetStatus();
-    } catch (e) {
-      try { rendrePoste(); aller('poste'); } catch (ignore) {}
+    if (msg.round && msg.round.key === round.key) {
+      round.remoteSubmitted = !!msg.round.hostReady;
+      var remoteRole = msg.round.hostPoste && msg.round.hostPoste !== save.poste ? msg.round.hostPoste : (msg.hostPoste && msg.hostPoste !== save.poste ? msg.hostPoste : null);
+      if (remoteRole && Array.isArray(msg.round.hostValues)) appliquerBrouillonDistant(msg.round.hostValues, remoteRole, round.key);
     }
+    if (!save.poste) {
+      rendrePoste(); aller('poste');
+    } else if (st.fini) {
+      rendreFin(); aller('fin');
+    } else {
+      rendreHub(); aller('hub');
+    }
+    p2pSetStatus();
     return true;
   }
 
@@ -2830,6 +2857,7 @@ input::placeholder{color:#5d6e80;}
     save.decisions = Array.isArray(msg.decisions) ? msg.decisions.slice() : [];
     save.skillOps = Array.isArray(msg.skillOps) ? msg.skillOps.slice() : [];
     save.pendingLocal = null;
+    p2pStopSubmitRetry();
     enregistrer();
     try { recalculer(); } catch (e) { return; }
     round.key = null;
@@ -2863,27 +2891,25 @@ input::placeholder{color:#5d6e80;}
     }
 
     if (msg.type === 'hello' && net.role === 'host') {
-      net.remotePoste = msg.poste || null;
+      if (msg.poste && msg.poste !== save.poste) net.remotePoste = msg.poste;
       p2pSendSnapshot();
       p2pSetStatus();
       return;
     }
 
-    if (msg.type === 'snapshot_request' && net.role === 'host') {
-      if (msg.poste) net.remotePoste = msg.poste;
-      p2pSendSnapshot();
-      return;
-    }
-
-    if (msg.type === 'guest_ready' && net.role === 'host') {
-      if (msg.poste) net.remotePoste = msg.poste;
-      p2pSendSnapshot();
-      return;
-    }
-
     if (msg.type === 'role' && net.role === 'host') {
-      net.remotePoste = msg.poste || null;
+      if (msg.poste && msg.poste !== save.poste) net.remotePoste = msg.poste;
       p2pSendSnapshot();
+      p2pSetStatus();
+      return;
+    }
+
+    if (msg.type === 'draft') {
+      if (!st || !cr || st.fini) return;
+      initialiserRound(false);
+      var inferredRole = msg.poste && msg.poste !== save.poste ? msg.poste : (net.remotePoste || posteOppose(save.poste));
+      if (net.role === 'host' && inferredRole && inferredRole !== save.poste) net.remotePoste = inferredRole;
+      if (!msg.poste || !inferredRole || msg.poste === save.poste || msg.poste !== inferredRole || !appliquerBrouillonDistant(msg.values, inferredRole, msg.key)) return;
       p2pSetStatus();
       return;
     }
@@ -2891,16 +2917,23 @@ input::placeholder{color:#5d6e80;}
     if (msg.type === 'submit' && net.role === 'host') {
       if (!st || !cr || st.fini) return;
       initialiserRound(false);
-      // Le poste annoncé dans le message doit correspondre au poste négocié
-      // lors du handshake. Sinon un client malveillant pourrait soumettre
-      // les indices appartenant à l'autre joueur.
-      if (!msg.poste || !net.remotePoste || msg.poste !== net.remotePoste || msg.poste === save.poste || !accepterSoumissionDistante(msg.values, msg.poste, msg.key)) {
+      var submitRole = msg.poste || net.remotePoste || posteOppose(save.poste);
+      if (submitRole && submitRole !== save.poste) net.remotePoste = submitRole;
+      if (!submitRole || submitRole === save.poste || !accepterSoumissionDistante(msg.values, submitRole, msg.key)) {
         p2pSend({ type: 'error', message: 'Décision reçue hors synchronisation.' });
         return;
       }
+      p2pSend({ type: 'submit_ack', key: round.key, hostReady: !!round.localSubmitted, guestReady: true });
       p2pSend({ type: 'round_status', key: round.key, hostReady: !!round.localSubmitted, guestReady: true });
       if (round.localSubmitted && round.remoteSubmitted) roundResolveHost();
       else p2pSetStatus();
+      return;
+    }
+
+    if (msg.type === 'submit_ack' && net.role === 'guest') {
+      if (!cr || msg.key !== roundKey()) return;
+      round.remoteSubmitted = !!msg.hostReady;
+      p2pSetStatus();
       return;
     }
 
@@ -2986,10 +3019,14 @@ input::placeholder{color:#5d6e80;}
         if (round.remoteSubmitted) roundResolveHost();
         else { rendreTransmissionAttente(); aller('transmission'); }
       } else {
-        if (!p2pSend({ type: 'submit', key: round.key, poste: save.poste, values: roundSubmitValues() })) {
+        var submitSent = p2pSend({ type: 'submit', key: round.key, poste: save.poste, values: roundSubmitValues() });
+        if (!submitSent) {
           round.localSubmitted = false;
           sauvegarderPendingLocal();
+          p2pSetStatus();
+          return;
         }
+        p2pStartSubmitRetry();
         rendreTransmissionAttente(); aller('transmission');
       }
       return;
@@ -3398,7 +3435,7 @@ input::placeholder{color:#5d6e80;}
         H('div', { class: 'etat-code boree-share-code', text: code || save.hostPeerId || '—' }),
         H('div', { class: 'petit', text: p2pStatusText() || 'Connexion…' })
       ),
-      net.connected && !net.stationLoaded ? H('button', { class: 'btn-large btn-primaire', onclick: p2pRequestStation }, 'Charger la station') : H('button', { class: 'btn-large btn-primaire', onclick: function () { p2pConnectToHost(); } }, 'Réessayer maintenant'),
+      H('button', { class: 'btn-large btn-primaire', onclick: function () { p2pConnectToHost(); } }, 'Réessayer maintenant'),
       H('button', { class: 'btn-large btn-discret', onclick: function () { p2pDestroy(); rendreRejoindre(); aller('accueil'); } }, 'Changer de code')
     ));
   }
@@ -3418,7 +3455,6 @@ input::placeholder{color:#5d6e80;}
           if (!v || v.length < 7) { err.textContent = 'Entre un code de station valide.'; return; }
           p2pDestroy();
           save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: v, peerId: null, pendingLocal: null, storySeen: false };
-          net.stationLoaded = false;
           enregistrer();
           p2pInit();
           rendreAttenteConnexion(); aller('poste');
@@ -3954,8 +3990,19 @@ input::placeholder{color:#5d6e80;}
     wrap.appendChild(corps);
 
     function editable(i) { return !round.localSubmitted && roleForIndex(cr, i, save.poste); }
-    function val(i) { return round.localDec ? round.localDec[i] : dec[i]; }
-    function setVal(i, v) { if (!editable(i)) return; round.localDec[i] = v; dec = round.localDec; redessine(); }
+    function val(i) {
+      if (roleForIndex(cr, i, save.poste)) return round.localDec ? round.localDec[i] : dec[i];
+      return round.remoteDec ? round.remoteDec[i] : (round.localDec ? round.localDec[i] : dec[i]);
+    }
+    function setVal(i, v) {
+      if (!editable(i)) return;
+      round.localDec[i] = v;
+      dec = round.localDec;
+      redessine();
+      if (net.connected && save.p2pRole !== 'demo') {
+        p2pSend({ type:'draft', key:round.key, poste:save.poste, values:roundSubmitValues() });
+      }
+    }
     function lockNote(i, label) {
       return H('div', { class: 'note-regle', style: 'margin-top:7px', text: roleForIndex(cr, i, save.poste) ? (round.localSubmitted ? '✓ ' + label + ' verrouillé.' : label + ' — ta décision.') : label + ' — décision de l’autre poste.' });
     }
