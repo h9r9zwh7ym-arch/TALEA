@@ -2438,7 +2438,7 @@ input::placeholder{color:#5d6e80;}
   };
 
   function roundKey() {
-    return cr ? [save.seed, st.annee, st.session, cr.type].join('|') : null;
+    return st ? [save.seed, st.annee, st.session].join('|') : null;
   }
 
   function roleForIndex(crise, idx, role) {
@@ -2552,20 +2552,20 @@ input::placeholder{color:#5d6e80;}
   }
 
   function accepterSoumissionDistante(values, role, key) {
-    if (!cr || key !== roundKey() || !Array.isArray(values)) return false;
+    if (!cr || !role) return false;
+    if (key && key !== roundKey()) return false;
+    if (!Array.isArray(values) || values.length !== cr.defaut.length) return false;
     var expected = indicesDuRole(cr, role);
-    var base = (round.remoteDec && round.remoteDec.length === cr.defaut.length) ? round.remoteDec.slice() : cr.defaut.slice();
-    var seen = {};
+    var base = cr.defaut.slice();
     for (var i = 0; i < values.length; i++) {
-      var item = values[i];
-      if (!item || expected.indexOf(item.i) < 0 || seen[item.i]) return false;
-      var width = cr.widths[item.i];
-      var max = (1 << width) - 1;
-      if (!Number.isInteger(item.v) || item.v < 0 || item.v > max) return false;
-      seen[item.i] = true;
-      base[item.i] = item.v;
+      if (!Number.isInteger(values[i])) return false;
+      var max = (1 << cr.widths[i]) - 1;
+      if (values[i] < 0 || values[i] > max) return false;
     }
-    for (var j = 0; j < expected.length; j++) if (!seen[expected[j]]) return false;
+    for (var j = 0; j < expected.length; j++) {
+      var idx = expected[j];
+      base[idx] = values[idx];
+    }
     round.remoteDec = base;
     round.remotePoste = role;
     round.remoteSubmitted = true;
@@ -2620,7 +2620,7 @@ input::placeholder{color:#5d6e80;}
   function p2pResendPending() {
     if (net.role !== 'guest' || !net.connected || !save.pendingLocal || !cr) return false;
     if (save.pendingLocal.key !== roundKey() || !save.pendingLocal.submitted) return false;
-    return p2pSend({ type: 'submit', key: roundKey(), poste: save.poste, values: save.pendingLocal.values });
+    return p2pSend({ type: 'submit', key: roundKey(), poste: save.poste, dec: (function(){ var a=cr.defaut.slice(); (save.pendingLocal.values||[]).forEach(function(v){ a[v.i]=v.v; }); return a; })() });
   }
 
   function p2pStartSubmitRetry() {
@@ -2812,28 +2812,15 @@ input::placeholder{color:#5d6e80;}
     }
 
     initialiserRound(true);
+    if (save.p2pRole === 'guest' && save.pendingLocal && save.pendingLocal.key !== round.key) {
+      save.pendingLocal = null;
+      enregistrer();
+      round.localSubmitted = false;
+    }
     if (msg.round && msg.round.key === round.key) {
-      /* Sur le téléphone invité, un ancien pendingLocal ne doit jamais rendre
-         les commandes inutilisables si l'hôte n'a pas confirmé cette manche.
-         L'hôte fait foi pour savoir si le guest était réellement verrouillé. */
-      round.localSubmitted = !!msg.round.guestReady;
-      if (round.localSubmitted) {
-        save.pendingLocal = save.pendingLocal && save.pendingLocal.key === round.key ? save.pendingLocal : null;
-      } else {
-        save.pendingLocal = null;
-        enregistrer();
-      }
       round.remoteSubmitted = !!msg.round.hostReady;
       var remoteRole = msg.round.hostPoste && msg.round.hostPoste !== save.poste ? msg.round.hostPoste : (msg.hostPoste && msg.hostPoste !== save.poste ? msg.hostPoste : null);
       if (remoteRole && Array.isArray(msg.round.hostValues)) appliquerBrouillonDistant(msg.round.hostValues, remoteRole, round.key);
-    } else if (save.p2pRole === 'guest') {
-      round.localSubmitted = false;
-      save.pendingLocal = null;
-      enregistrer();
-    }
-    if (save.p2pRole === 'guest' && net.connected && !round.localSubmitted && save.pendingLocal && save.pendingLocal.submitted) {
-      save.pendingLocal = null;
-      enregistrer();
     }
     if (!save.poste) {
       rendrePoste(); aller('poste');
@@ -2858,8 +2845,12 @@ input::placeholder{color:#5d6e80;}
     try { recalculer(); } catch (e) { return; }
     round.key = null;
     if (msg.result && msg.cr) {
-      rendreResolution(msg.result, msg.cr, msg.avant || { integrite: st.integrite, cohesion: st.cohesion });
-      aller('resolution');
+      try {
+        rendreResolution(msg.result, msg.cr, msg.avant || { integrite: st.integrite, cohesion: st.cohesion });
+        aller('resolution');
+      } catch (e) {
+        try { rendreHub(); aller('hub'); } catch (ignored) {}
+      }
       cr = B.crisisFor(st);
       dec = cr ? cr.defaut.slice() : null;
     } else if (st.fini) {
@@ -2906,20 +2897,24 @@ input::placeholder{color:#5d6e80;}
     if (msg.type === 'submit' && net.role === 'host') {
       if (!st || !cr || st.fini) return;
       initialiserRound(false);
-      var submitRole = msg.poste || net.remotePoste || posteOppose(save.poste);
-      if (submitRole && submitRole !== save.poste) net.remotePoste = submitRole;
-      if (!submitRole || submitRole === save.poste || !accepterSoumissionDistante(msg.values, submitRole, msg.key)) {
-        p2pSend({ type: 'error', message: 'Décision reçue hors synchronisation.' });
+      var submitRole = (msg.poste && msg.poste !== save.poste) ? msg.poste : posteOppose(save.poste);
+      if (submitRole !== 'tech' && submitRole !== 'equipage') {
+        p2pSend({ type:'submit_ack', key:round.key, accepted:false });
         return;
       }
-      p2pSend({ type: 'submit_ack', key: round.key, hostReady: !!round.localSubmitted, guestReady: true });
-      p2pSend({ type: 'round_status', key: round.key, hostReady: !!round.localSubmitted, guestReady: true });
-      if (round.localSubmitted && round.remoteSubmitted) roundResolveHost();
+      if (!accepterSoumissionDistante(msg.dec, submitRole, msg.key)) {
+        p2pSend({ type:'submit_ack', key:round.key, accepted:false });
+        return;
+      }
+      net.remotePoste = submitRole;
+      p2pSend({ type:'submit_ack', key:round.key, accepted:true, hostReady:!!round.localSubmitted });
+      if (round.localSubmitted) roundResolveHost();
       return;
     }
 
     if (msg.type === 'submit_ack' && net.role === 'guest') {
       if (!cr || msg.key !== roundKey()) return;
+      if (msg.accepted) p2pStopSubmitRetry();
       round.remoteSubmitted = !!msg.hostReady;
       return;
     }
@@ -3005,7 +3000,7 @@ input::placeholder{color:#5d6e80;}
         if (round.remoteSubmitted) roundResolveHost();
         else { rendreTransmissionAttente(); aller('transmission'); }
       } else {
-        var submitSent = p2pSend({ type: 'submit', key: round.key, poste: save.poste, values: roundSubmitValues() });
+        var submitSent = p2pSend({ type: 'submit', key: round.key, poste: save.poste, dec: round.localDec.slice() });
         if (!submitSent) {
           round.localSubmitted = false;
           sauvegarderPendingLocal();
