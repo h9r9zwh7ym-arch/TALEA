@@ -1,0 +1,2390 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Borée — un jeu de coopération asymétrique à deux, sur deux téléphones. Une station polaire, un hiver à passer.">
+<meta name="theme-color" content="#070a0f">
+<style>html,body{margin:0;background:#070a0f}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Borée</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Saira+Condensed:wght@600;700&display=swap">
+<style>
+/* ============================================================
+   BORÉE — un seul monde visuel : un écran d'instrument dans une
+   station polaire, la nuit. Volontairement mono-thème ; toutes les
+   couleurs sont peintes explicitement pour tenir sur n'importe quel
+   fond hôte.
+   ============================================================ */
+:root {
+  color-scheme: dark;
+  --sol: #070a0f;
+  --sol-haut: #0b1016;
+  --caisson: #0d1218;
+  --caisson-clair: #131a23;
+  --trait: #1b2532;
+  --trait-vif: #2a3949;
+  --givre: #cdd9e5;
+  --givre-doux: #9fb0c1;
+  --sourd: #67788a;
+  --tech: #54d0e2;
+  --equipage: #e39a6c;
+  --alerte: #e4b44c;
+  --grave: #d9604a;
+  --bon: #79c78a;
+  --accent: var(--tech);
+  --accent-faible: rgba(84, 208, 226, 0.13);
+  --r: 3px;
+  --pas: 14px;
+  --large: 560px;
+  --display: "Saira Condensed", "Oswald", "Arial Narrow", sans-serif;
+  --corps: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+[data-poste="equipage"] {
+  --accent: var(--equipage);
+  --accent-faible: rgba(227, 154, 108, 0.13);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--sol);
+  color: var(--givre);
+  font-family: var(--corps);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+#neige {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  max-width: var(--large);
+  margin: 0 auto;
+  padding-inline: 18px;
+  padding-block: 0 64px;
+}
+
+/* ---------- barre haute ---------- */
+#barre {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-block: 12px 10px;
+  margin-bottom: 16px;
+  background: linear-gradient(to bottom, var(--sol) 68%, rgba(7, 10, 15, 0));
+  border-bottom: 1px solid var(--trait);
+}
+
+#barre .nom {
+  font-family: var(--display);
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--givre);
+  line-height: 1;
+}
+
+#barre .jour {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--sourd);
+  letter-spacing: 0.05em;
+  margin-left: auto;
+  text-align: right;
+}
+
+#barre .poste {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+/* ---------- blocs ---------- */
+.ecran { display: none; }
+.ecran.actif { display: block; }
+
+.pile { display: flex; flex-direction: column; gap: var(--pas); }
+.rang { display: flex; flex-wrap: wrap; gap: 8px; }
+
+h1, h2, h3 { text-wrap: balance; margin: 0; font-weight: 600; }
+
+.titre-geant {
+  font-family: var(--display);
+  font-size: clamp(56px, 21vw, 104px);
+  letter-spacing: 0.07em;
+  line-height: 0.9;
+  text-transform: uppercase;
+  color: var(--givre);
+  margin-bottom: 4px;
+}
+
+.sous-titre {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--tech);
+  margin-bottom: 22px;
+}
+
+.etiquette {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sourd);
+  display: block;
+  margin-bottom: 7px;
+}
+
+.titre-bloc {
+  font-family: var(--display);
+  font-size: 21px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--givre);
+}
+
+.prose { color: var(--givre-doux); max-width: 62ch; }
+.prose strong { color: var(--givre); font-weight: 600; }
+.petit { font-size: 13px; color: var(--sourd); }
+
+/* Le poste technique lit des relevés : encadrés carrés, filets, chiffres
+   alignés. Le poste équipage lit des gens : coins adoucis, filet chaud. */
+.caisson {
+  background: var(--caisson);
+  border: 1px solid var(--trait);
+  padding: 15px;
+}
+
+[data-poste="equipage"] .caisson { border-radius: var(--r); }
+
+.caisson.accentue {
+  border-left: 2px solid var(--accent);
+  background: linear-gradient(90deg, var(--accent-faible), transparent 42%), var(--caisson);
+}
+
+/* ---------- boutons ---------- */
+button {
+  font-family: var(--corps);
+  font-size: 14px;
+  color: var(--givre);
+  background: var(--caisson-clair);
+  border: 1px solid var(--trait-vif);
+  padding: 11px 15px;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s, color 0.14s;
+  text-align: left;
+}
+
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.btn-large {
+  display: block;
+  width: 100%;
+  font-family: var(--display);
+  font-size: 19px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 14px 16px;
+  text-align: center;
+}
+
+.btn-primaire {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06090d;
+  font-weight: 600;
+}
+
+.btn-primaire:hover { filter: brightness(1.12); }
+.btn-discret { background: transparent; border-color: var(--trait); color: var(--givre-doux); }
+.btn-discret:hover { color: var(--givre); }
+
+input[type="text"] {
+  font-family: var(--mono);
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  background: var(--sol-haut);
+  color: var(--givre);
+  border: 1px solid var(--trait-vif);
+  padding: 11px 13px;
+  width: 100%;
+}
+
+input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+input[type="text"]::placeholder { color: var(--sourd); letter-spacing: 0.2em; }
+
+/* ---------- schéma de la station ---------- */
+.schema {
+  background: radial-gradient(120% 90% at 50% 0%, #101822, var(--sol-haut) 70%);
+  border: 1px solid var(--trait);
+  padding: 6px;
+}
+
+.schema svg { display: block; width: 100%; height: auto; max-width: 100%; }
+
+/* ---------- jauges ---------- */
+.jauges { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.jauge { background: var(--caisson); border: 1px solid var(--trait); padding: 11px 12px; }
+
+.jauge .val {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--givre);
+}
+
+.jauge .barre { height: 3px; background: var(--trait-vif); margin-top: 9px; }
+.jauge .barre i { display: block; height: 100%; background: var(--accent); }
+.jauge.bas .val, .jauge.bas .barre i { color: var(--grave); background-color: var(--grave); }
+.jauge.bas .val { background: none; }
+.jauge.moyen .val { color: var(--alerte); }
+.jauge.moyen .barre i { background: var(--alerte); }
+
+/* ---------- listes de données (poste technique) ---------- */
+table.releve {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+table.releve th {
+  text-align: right;
+  font-weight: 400;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sourd);
+  border-bottom: 1px solid var(--trait-vif);
+  padding: 0 0 6px 8px;
+  white-space: nowrap;
+}
+
+table.releve th:first-child, table.releve td:first-child { text-align: left; padding-left: 0; }
+table.releve td { padding: 7px 0 7px 8px; text-align: right; border-bottom: 1px solid var(--trait); color: var(--givre-doux); white-space: nowrap; }
+table.releve td:first-child { color: var(--givre); }
+table.releve tr:last-child td { border-bottom: none; }
+td .hs { color: var(--grave); font-weight: 600; }
+td .att { color: var(--alerte); }
+.defile { overflow-x: auto; }
+
+/* ---------- fiches d'équipage (poste équipage) ---------- */
+.fiche {
+  background: var(--caisson);
+  border: 1px solid var(--trait);
+  border-left: 2px solid var(--equipage);
+  border-radius: var(--r);
+  padding: 12px 13px;
+}
+
+.fiche.malade { border-left-color: var(--grave); }
+.fiche.attention { border-left-color: var(--alerte); }
+.fiche .nom { font-weight: 600; color: var(--givre); }
+.fiche .role { font-size: 12px; color: var(--sourd); }
+.fiche .dit { color: var(--givre-doux); font-size: 14px; margin-top: 7px; }
+.fiche .dit em { color: var(--equipage); font-style: italic; }
+.fiche .meta { font-family: var(--mono); font-size: 10.5px; color: var(--sourd); margin-top: 8px; letter-spacing: 0.03em; }
+
+/* ---------- contrôles de décision ---------- */
+.ligne-dec { border-bottom: 1px solid var(--trait); padding-block: 12px; }
+.ligne-dec:last-child { border-bottom: none; }
+.ligne-dec .quoi { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-bottom: 9px; }
+.ligne-dec .quoi b { font-weight: 600; }
+.ligne-dec .quoi span { font-family: var(--mono); font-size: 11px; color: var(--sourd); text-align: right; white-space: nowrap; }
+
+/* Tableau des régimes : un bloc par module plutôt qu'une grande table,
+   parce que l'écran fait 390 px de large et que la colonne « Plein »
+   est justement celle qu'on veut voir. */
+.mod-bloc { border-bottom: 1px solid var(--trait); padding-block: 11px; }
+.mod-bloc:last-of-type { border-bottom: none; }
+.mod-tete { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 8px; }
+.mod-tete b { font-weight: 600; color: var(--givre); }
+.mod-tete span { font-family: var(--mono); font-size: 10.5px; color: var(--sourd); white-space: nowrap; }
+.regimes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.regimes > div { background: var(--sol-haut); border: 1px solid var(--trait); padding: 6px 3px; text-align: center; }
+.regimes .lab { display: block; font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--sourd); }
+.regimes .tp { display: block; font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; color: var(--givre); margin-top: 3px; }
+.regimes .kw { display: block; font-family: var(--mono); font-size: 9.5px; color: var(--sourd); }
+.regimes .danger { border-color: rgba(217, 96, 74, 0.45); }
+.regimes .danger .tp { color: var(--grave); }
+.regimes .limite .tp { color: var(--alerte); }
+
+.segments { display: grid; gap: 5px; grid-template-columns: repeat(4, 1fr); }
+
+.segments button {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 8px 5px;
+  text-align: center;
+  background: transparent;
+  border-color: var(--trait);
+  color: var(--givre-doux);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.segments button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06090d;
+  font-weight: 600;
+}
+
+.choix { display: flex; flex-direction: column; gap: 7px; }
+
+.choix button {
+  display: block;
+  width: 100%;
+  border-color: var(--trait);
+  background: transparent;
+  padding: 10px 12px;
+}
+
+.choix button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-faible); }
+.choix button b { display: block; font-weight: 600; color: var(--givre); }
+.choix button i { display: block; font-style: normal; font-size: 12.5px; color: var(--sourd); margin-top: 2px; }
+
+/* ---------- code de transmission ---------- */
+.code-affiche {
+  font-family: var(--mono);
+  font-size: clamp(38px, 13vw, 58px);
+  letter-spacing: 0.16em;
+  text-align: center;
+  color: var(--accent);
+  background: var(--sol-haut);
+  border: 1px dashed var(--trait-vif);
+  padding: 18px 10px;
+  word-break: break-all;
+}
+
+.etat-code {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: var(--givre);
+}
+
+/* ---------- rapports de résolution ---------- */
+.rapport { display: flex; flex-direction: column; gap: 9px; }
+
+.item {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 9px;
+  align-items: start;
+  font-size: 14px;
+  color: var(--givre-doux);
+}
+
+.item::before {
+  content: "—";
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--sourd);
+  line-height: 1.6;
+}
+
+.item.good { color: var(--givre); }
+.item.good::before { content: "✓"; color: var(--bon); }
+.item.warn::before { content: "!"; color: var(--alerte); }
+.item.bad::before { content: "×"; color: var(--grave); }
+.item.bad { color: #f0d7d2; }
+
+.recit {
+  font-size: 15.5px;
+  line-height: 1.62;
+  color: var(--givre);
+  border-left: 2px solid var(--trait-vif);
+  padding-left: 14px;
+}
+
+.recit p { margin: 0 0 9px; }
+.recit p:last-child { margin-bottom: 0; }
+
+/* ---------- journal ---------- */
+.entree { border-bottom: 1px solid var(--trait); padding-block: 13px; }
+.entree:last-child { border-bottom: none; }
+.entree .quand { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sourd); }
+.entree h3 { font-family: var(--display); font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 3px; }
+.entree p { margin: 5px 0 0; color: var(--givre-doux); font-size: 14px; }
+
+/* ---------- divers ---------- */
+.note-regle {
+  font-size: 13px;
+  color: var(--sourd);
+  border-left: 2px solid var(--trait-vif);
+  padding-left: 12px;
+}
+
+.avert { color: var(--alerte); font-size: 13px; font-family: var(--mono); }
+.erreur { color: var(--grave); font-size: 13px; }
+.puces { margin: 0; padding-left: 18px; color: var(--givre-doux); }
+.puces li { margin-bottom: 5px; }
+.sep { height: 1px; background: var(--trait); }
+
+@media (max-width: 380px) {
+  .jauges { grid-template-columns: 1fr; }
+  #barre .nom { font-size: 21px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  #neige { display: none; }
+}
+</style>
+
+<canvas id="neige" aria-hidden="true"></canvas>
+
+<div id="app">
+  <header id="barre"></header>
+  <main>
+    <section id="ecran-accueil" class="ecran actif"></section>
+    <section id="ecran-regles" class="ecran"></section>
+    <section id="ecran-poste" class="ecran"></section>
+    <section id="ecran-hub" class="ecran"></section>
+    <section id="ecran-crise" class="ecran"></section>
+    <section id="ecran-transmission" class="ecran"></section>
+    <section id="ecran-resolution" class="ecran"></section>
+    <section id="ecran-journal" class="ecran"></section>
+    <section id="ecran-fin" class="ecran"></section>
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   BORÉE — moteur de jeu (logique pure, sans DOM)
+   Deux appareils, aucun serveur : tout est déterministe à partir
+   de (graine de station + suite des codes de décision).
+   ============================================================ */
+(function (root) {
+  'use strict';
+
+  /* ---------- aléatoire déterministe ---------- */
+  function hashStr(s) {
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function makeRng(seedStr) {
+    var r = mulberry32(hashStr(String(seedStr)));
+    var api = {
+      f: function () { return r(); },
+      int: function (n) { return Math.floor(r() * n); },
+      range: function (a, b) { return a + Math.floor(r() * (b - a + 1)); },
+      pick: function (arr) { return arr[Math.floor(r() * arr.length)]; },
+      chance: function (p) { return r() < p; },
+      shuffle: function (arr) {
+        var a = arr.slice();
+        for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+        return a;
+      },
+      picks: function (arr, n) { return api.shuffle(arr).slice(0, n); }
+    };
+    return api;
+  }
+
+  /* ---------- codes (base 32 lisible) ---------- */
+  var ALPHA = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  function packCode(vals, widths) {
+    var bits = '';
+    for (var i = 0; i < widths.length; i++) {
+      var v = (vals[i] | 0) & ((1 << widths[i]) - 1);
+      bits += v.toString(2).padStart(widths[i], '0');
+    }
+    while (bits.length % 5) bits += '0';
+    var out = '';
+    for (var j = 0; j < bits.length; j += 5) out += ALPHA[parseInt(bits.slice(j, j + 5), 2)];
+    return out;
+  }
+  function normCode(code) {
+    return String(code || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
+      .replace(/O/g, 'Q').replace(/0/g, 'Q').replace(/I/g, 'J').replace(/1/g, 'J');
+  }
+  function unpackCode(code, widths) {
+    var c = normCode(code), bits = '';
+    for (var i = 0; i < c.length; i++) {
+      var idx = ALPHA.indexOf(c[i]);
+      if (idx < 0) return null;
+      bits += idx.toString(2).padStart(5, '0');
+    }
+    var need = widths.reduce(function (a, b) { return a + b; }, 0);
+    if (bits.length < need) return null;
+    var out = [], p = 0;
+    for (var k = 0; k < widths.length; k++) { out.push(parseInt(bits.slice(p, p + widths[k]), 2)); p += widths[k]; }
+    return out;
+  }
+  function newSeed() {
+    var s = '';
+    var buf = null;
+    try {
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        buf = new Uint8Array(4); crypto.getRandomValues(buf);
+      }
+    } catch (e) { buf = null; }
+    for (var i = 0; i < 4; i++) {
+      var v = buf ? buf[i] : Math.floor(Math.random() * 256);
+      s += ALPHA[v % 32];
+    }
+    return s;
+  }
+  /* Le code de transmission porte une somme de contrôle : un caractère mal
+     recopié est refusé au lieu de faire dériver silencieusement les deux
+     stations vers deux histoires différentes. */
+  function checkChar(st, dec) {
+    var h = hashStr(st.seed + '|' + st.annee + '|' + st.session + '|' + dec.join(','));
+    return ALPHA[h % 32];
+  }
+  function emitCode(st, cr, dec) {
+    var payload = packCode(dec, cr.widths);
+    return payload + checkChar(st, dec);
+  }
+  function readCode(st, cr, input) {
+    var c = normCode(input);
+    var payloadLen = Math.ceil(cr.widths.reduce(function (a, b) { return a + b; }, 0) / 5);
+    if (c.length !== payloadLen + 1) return null;
+    var dec = unpackCode(c.slice(0, payloadLen), cr.widths);
+    if (!dec) return null;
+    if (checkChar(st, dec) !== c.slice(payloadLen)) return null;
+    return { dec: dec, payload: c.slice(0, payloadLen) };
+  }
+
+  function stateCode(save) {
+    var h = hashStr(save.seed + '#' + save.decisions.join('.'));
+    return ALPHA[h % 32] + ALPHA[(h >> 5) % 32] + ALPHA[(h >> 10) % 32];
+  }
+
+  /* ---------- contenu : équipage ---------- */
+  var SKILL_LABEL = {
+    mecanique: 'mécanique', electricite: 'électricité', soudure: 'soudure',
+    medical: 'médical', informatique: 'informatique', logistique: 'logistique',
+    science: 'science', pilotage: 'pilotage'
+  };
+  var ROSTER = [
+    { name: 'Nadia Roussel', role: 'médecin de station', sk: ['medical', 'science'] },
+    { name: 'Ivar Lindqvist', role: 'mécanicien', sk: ['mecanique', 'soudure'] },
+    { name: 'Wren Achebe', role: 'électricienne', sk: ['electricite', 'informatique'] },
+    { name: 'Tomas Vrba', role: 'intendant', sk: ['logistique', 'mecanique'] },
+    { name: 'Soline Mercier', role: 'glaciologue', sk: ['science', 'logistique'] },
+    { name: 'Kaito Mori', role: 'opérateur radio', sk: ['informatique', 'electricite'] },
+    { name: 'Émile Fauvel', role: 'chaudronnier', sk: ['soudure', 'mecanique'] },
+    { name: 'Dario Sala', role: 'pilote de chenillette', sk: ['pilotage', 'mecanique'] },
+    { name: 'Mira Halldórs', role: 'biologiste', sk: ['science', 'medical'] },
+    { name: 'Léon Petit', role: 'géophysicien', sk: ['science', 'informatique'] }
+  ];
+  var TRAITS = [
+    { id: 'froid', label: 'supporte le froid', note: 'a passé six hivers ici. Le froid ne l\'atteint plus.' },
+    { id: 'insomnie', label: 'dort mal', note: 'ne dort pas si la pièce est partagée.' },
+    { id: 'exterieur', label: 'mal à l\'extérieur', note: 'perd ses moyens dès qu\'il faut sortir par grand vent.' },
+    { id: 'fiable', label: 'imperturbable', note: 'ne panique jamais, quoi qu\'il arrive.' },
+    { id: 'orgueil', label: 'ne se plaint pas', note: 'dira toujours que ça va. Ce n\'est pas toujours vrai.' },
+    { id: 'poussiere', label: 'voies respiratoires fragiles', note: 'tousse dès que l\'air est chargé.' }
+  ];
+
+  /* ---------- contenu : modules ---------- */
+  function baseModules() {
+    return {
+      DORTOIR_A: { id: 'DORTOIR_A', nom: 'Dortoir A', hab: true, cap: 2, ins: 0.92, boucle: 1, x: 1, y: 1, built: true, dmg: 0 },
+      DORTOIR_B: { id: 'DORTOIR_B', nom: 'Dortoir B', hab: true, cap: 2, ins: 0.84, boucle: 2, x: 2, y: 1, built: true, dmg: 0 },
+      CARRE: { id: 'CARRE', nom: 'Le Carré', hab: true, cap: 2, ins: 1.0, boucle: 1, x: 1, y: 2, built: true, dmg: 0 },
+      LABO: { id: 'LABO', nom: 'Laboratoire', hab: true, cap: 1, ins: 0.66, boucle: 2, x: 2, y: 2, built: true, dmg: 0 },
+      MACHINES: { id: 'MACHINES', nom: 'Salle des machines', hab: false, cap: 0, ins: 0.5, boucle: 2, x: 3, y: 1, built: true, dmg: 0 },
+      RESERVE: { id: 'RESERVE', nom: 'Réserve', hab: false, cap: 0, ins: 0.7, boucle: 1, x: 0, y: 2, built: true, dmg: 0 },
+      SAS: { id: 'SAS', nom: 'Sas ouest', hab: false, cap: 0, ins: 0.4, boucle: 0, x: 0, y: 1, built: true, dmg: 0 },
+      INFIRMERIE: { id: 'INFIRMERIE', nom: 'Infirmerie', hab: true, cap: 1, ins: 0.95, boucle: 1, x: 1, y: 3, built: false, dmg: 0 },
+      SERRE: { id: 'SERRE', nom: 'Serre', hab: false, cap: 0, ins: 0.78, boucle: 2, x: 2, y: 3, built: false, dmg: 0 },
+      ATELIER: { id: 'ATELIER', nom: 'Atelier', hab: false, cap: 0, ins: 0.6, boucle: 0, x: 3, y: 2, built: false, dmg: 0 }
+    };
+  }
+  var CHANTIERS = [
+    { id: 'INFIRMERIE', nom: 'Infirmerie', cout: 2, effet: 'Les malades récupèrent deux fois plus vite.' },
+    { id: 'SERRE', nom: 'Serre', cout: 3, effet: 'Légumes frais : le moral cesse de s\'éroder tout seul.' },
+    { id: 'ATELIER', nom: 'Atelier', cout: 2, effet: 'Les réparations coûtent une demi-semaine au lieu d\'une.' }
+  ];
+
+  var JOURS_HIVER = 54;
+  var JOURS_SESSION = 6;
+
+  /* ---------- création de l'état initial ---------- */
+  function initialState(seed) {
+    var rng = makeRng(seed + '|roster');
+    var picked = rng.picks(ROSTER, 5);
+    var traits = rng.shuffle(TRAITS);
+    var mods = baseModules();
+    var habs = ['DORTOIR_A', 'DORTOIR_B', 'CARRE', 'LABO'];
+    var crew = picked.map(function (p, i) {
+      var sk = {};
+      sk[p.sk[0]] = 2; sk[p.sk[1]] = 1;
+      return {
+        id: 'c' + i, nom: p.name, prenom: p.name.split(' ')[0], role: p.role,
+        sk: sk, sante: 100, moral: rng.range(66, 86),
+        trait: traits[i % traits.length],
+        rythme: 'jour', boisson: 'café',
+        couchage: habs[i % habs.length],
+        etat: 'ok', bobo: null
+      };
+    });
+    // une personne travaille de nuit, une autre ne boit que du thé : détails
+    // anodins qui deviennent des indices décisifs plus tard.
+    crew[rng.int(crew.length)].rythme = 'nuit';
+    var theIdx = rng.int(crew.length);
+    crew[theIdx].boisson = 'thé';
+
+    var rel = {};
+    for (var a = 0; a < crew.length; a++) {
+      for (var b = a + 1; b < crew.length; b++) {
+        rel[crew[a].id + '|' + crew[b].id] = rng.range(-1, 1);
+      }
+    }
+    // une tension installée dès le départ
+    var pa = rng.int(crew.length), pb = (pa + 1 + rng.int(crew.length - 1)) % crew.length;
+    rel[relKey(crew[pa].id, crew[pb].id)] = -2;
+
+    return {
+      seed: seed, annee: 1, jour: 1, session: 0,
+      integrite: 82, cohesion: 74,
+      modules: mods, crew: crew, rel: rel,
+      chantier: null, chantierFait: 0,
+      journal: [], dette: [], fini: false, issue: null,
+      lastType: null
+    };
+  }
+  function relKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
+  function relOf(st, a, b) { return st.rel[relKey(a, b)] || 0; }
+  function bumpRel(st, a, b, d) {
+    var k = relKey(a, b);
+    st.rel[k] = Math.max(-3, Math.min(3, (st.rel[k] || 0) + d));
+  }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function actifs(st) { return st.crew.filter(function (c) { return c.etat !== 'critique' && c.etat !== 'perdu'; }); }
+  function habitables(st) {
+    return Object.keys(st.modules).map(function (k) { return st.modules[k]; })
+      .filter(function (m) { return m.hab && m.built && m.dmg < 2; });
+  }
+
+  /* ============================================================
+     CRISE 1 — TRIAGE THERMIQUE
+     Lui : puissance, isolation, températures, gel des conduites.
+     Elle : qui supporte quoi, qui ne peut pas dormir avec qui.
+     ============================================================ */
+  function tempAt(mod, level, dehors) {
+    if (level === 0) return Math.round(dehors * 0.45);
+    return Math.round((dehors * 0.45) + level * (11 * mod.ins));
+  }
+  var COUT_NIVEAU = [0, 1.5, 3, 5];
+
+  function genThermique(st, rng) {
+    var dehors = rng.range(-38, -27) - (st.annee - 1) * 3;
+    var mods = rng.shuffle(habitables(st)).sort(function (a, b) { return b.cap - a.cap; }).slice(0, 4);
+    var eq = actifs(st);
+    var capTot = mods.reduce(function (s, m) { return s + m.cap; }, 0);
+    // puissance serrée : de quoi chauffer correctement deux ou trois modules,
+    // jamais tous. Purger un module est un choix légitime, pas une faute.
+    var plein = mods.reduce(function (s, m) { return s + COUT_NIVEAU[3] * (m.cap >= 2 ? 1 : 0.8); }, 0);
+    var budget = Math.round((plein * (0.60 + rng.f() * 0.16)) * 2) / 2;
+
+    var cout = {}, temps = {};
+    mods.forEach(function (m) {
+      var fac = m.cap >= 2 ? 1 : 0.8;
+      cout[m.id] = COUT_NIVEAU.map(function (c) { return Math.round(c * fac * 2) / 2; });
+      temps[m.id] = [0, 1, 2, 3].map(function (l) { return tempAt(m, l, dehors); });
+    });
+
+    // besoins humains
+    var besoins = eq.map(function (c) {
+      var mini = 4, pourquoi = null;
+      if (c.etat === 'malade' || c.sante < 55) { mini = 13; pourquoi = c.bobo || 'fiévreux, ne doit pas prendre froid'; }
+      else if (c.etat === 'blesse') { mini = 10; pourquoi = c.bobo || 'blessé, immobilisé une partie de la nuit'; }
+      else if (c.trait.id === 'froid') { mini = -2; pourquoi = 'supporte le froid mieux que les autres'; }
+      else if (c.trait.id === 'poussiere') { mini = 7; pourquoi = 'tousse dès qu\'il fait humide et froid'; }
+      var seul = c.trait.id === 'insomnie';
+      var cache = c.trait.id === 'orgueil' && mini > 4;
+      return { id: c.id, mini: mini, pourquoi: pourquoi, seul: seul, cache: cache };
+    });
+    var conflits = [];
+    for (var i = 0; i < eq.length; i++) {
+      for (var j = i + 1; j < eq.length; j++) {
+        if (relOf(st, eq[i].id, eq[j].id) <= -2) conflits.push([eq[i].id, eq[j].id]);
+      }
+    }
+
+    var widths = [];
+    mods.forEach(function () { widths.push(2); });
+    eq.forEach(function () { widths.push(2); });
+    widths.push(2); // affectation de la semaine
+
+    return {
+      type: 'thermique',
+      titre: 'Triage thermique',
+      chapeau: 'Le groupe électrogène ne tient plus la charge. Il faut décider qui dort où, et ce qu\'on chauffe.',
+      dehors: dehors, mods: mods, eq: eq, budget: budget, cout: cout, temps: temps,
+      besoins: besoins, conflits: conflits, capTot: capTot,
+      widths: widths,
+      defaut: mods.map(function () { return 2; }).concat(eq.map(function (_, i) { return i % mods.length; })).concat([0])
+    };
+  }
+
+  function resThermique(st, cr, dec, rng) {
+    var nb = cr.mods.length;
+    var niveaux = dec.slice(0, nb);
+    var place = dec.slice(nb, nb + cr.eq.length).map(function (v) { return v % nb; });
+    var tech = [], crewR = [], shared = [];
+    var dIntegrite = 0, dCohesion = 0, notes = [];
+
+    // puissance
+    var conso = 0;
+    cr.mods.forEach(function (m, i) { conso += cr.cout[m.id][niveaux[i]]; });
+    conso = Math.round(conso * 2) / 2;
+    var surcharge = conso > cr.budget + 0.001;
+    var niveauxReels = niveaux.slice();
+    if (surcharge) {
+      niveauxReels = niveaux.map(function (l) { return Math.max(0, l - 1); });
+      dIntegrite -= 7;
+      tech.push({ t: 'bad', txt: 'Surcharge : ' + conso.toFixed(1) + ' kW demandés pour ' + cr.budget.toFixed(1) + ' kW disponibles. Le régulateur a délesté d\'un cran partout.' });
+      shared.push('Le groupe a décroché vers deux heures du matin. Tout est redescendu d\'un cran.');
+    } else {
+      tech.push({ t: 'good', txt: 'Charge tenue : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW.' });
+    }
+
+    // conduites — un module coupé volontairement est purgé, donc sans risque ;
+    // un module délesté par la surcharge n'a pas eu ce luxe.
+    cr.mods.forEach(function (m, i) {
+      var t = cr.temps[m.id][niveauxReels[i]];
+      if (niveaux[i] === 0) {
+        tech.push({ t: 'ok', txt: m.nom + ' hors service, conduites purgées.' });
+      } else if (t <= -2) {
+        st.modules[m.id].dmg = Math.min(2, st.modules[m.id].dmg + 1);
+        dIntegrite -= 9;
+        tech.push({ t: 'bad', txt: m.nom + ' à ' + t + ' °C : la conduite a gelé puis cédé. Module à réparer.' });
+        shared.push('Une conduite a éclaté dans ' + m.nom + '. Il a fallu couper l\'eau à quatre heures.');
+      } else if (t < 3) {
+        tech.push({ t: 'warn', txt: m.nom + ' à ' + t + ' °C : sous le seuil de gel, ça a tenu de justesse.' });
+      } else {
+        tech.push({ t: 'ok', txt: m.nom + ' à ' + t + ' °C.' });
+      }
+    });
+
+    // occupation
+    var occ = cr.mods.map(function () { return []; });
+    place.forEach(function (mi, i) { occ[mi].push(cr.eq[i]); });
+    occ.forEach(function (list, i) {
+      var m = cr.mods[i];
+      if (list.length > m.cap) {
+        dCohesion -= 5;
+        tech.push({ t: 'warn', txt: m.nom + ' : ' + list.length + ' personnes pour ' + m.cap + ' couchages.' });
+        crewR.push({ t: 'warn', txt: list.length + ' personnes entassées dans ' + m.nom + '. Personne n\'a vraiment dormi.' });
+        list.forEach(function (c) { applyMoral(st, c.id, -6); });
+      }
+    });
+
+    // besoins
+    cr.eq.forEach(function (c, i) {
+      var m = cr.mods[place[i]];
+      var t = cr.temps[m.id][niveauxReels[place[i]]];
+      var b = cr.besoins[i];
+      if (t < b.mini) {
+        var ecart = b.mini - t;
+        var dommage = ecart >= 12 ? 26 : ecart >= 6 ? 16 : 8;
+        applySante(st, c.id, -dommage, ecart >= 12 ? 'a pris froid toute la nuit' : 'a mal dormi dans le froid');
+        applyMoral(st, c.id, -8);
+        dCohesion -= 4;
+        crewR.push({
+          t: dommage >= 16 ? 'bad' : 'warn',
+          txt: c.prenom + ' a passé la nuit à ' + t + ' °C dans ' + m.nom + '. ' +
+            (b.pourquoi ? 'Or ' + b.pourquoi + '. ' : '') +
+            (dommage >= 16 ? 'Au matin, elle ne tenait plus debout.'.replace('elle', genre(c)) : 'Elle s\'est réveillée grelottante.'.replace('Elle', cap(genre(c))))
+        });
+      } else {
+        crewR.push({ t: 'ok', txt: c.prenom + ' — nuit correcte dans ' + m.nom + '.' });
+        applyMoral(st, c.id, 2);
+      }
+      if (b.seul && occ[place[i]].length > 1) {
+        applyMoral(st, c.id, -7);
+        crewR.push({ t: 'warn', txt: c.prenom + ' n\'a pas fermé l\'œil : ' + m.nom + ' était partagé.' });
+      }
+    });
+
+    // conflits
+    cr.conflits.forEach(function (pair) {
+      var ia = cr.eq.findIndex(function (c) { return c.id === pair[0]; });
+      var ib = cr.eq.findIndex(function (c) { return c.id === pair[1]; });
+      if (ia < 0 || ib < 0) return;
+      if (place[ia] === place[ib]) {
+        bumpRel(st, pair[0], pair[1], -1);
+        applyMoral(st, pair[0], -9); applyMoral(st, pair[1], -9);
+        dCohesion -= 9;
+        crewR.push({ t: 'bad', txt: nomOf(st, pair[0]) + ' et ' + nomOf(st, pair[1]) + ' ont été mis dans le même module. Ça a fini en cris dans le couloir.' });
+      } else {
+        bumpRel(st, pair[0], pair[1], 1);
+        dCohesion += 3;
+      }
+    });
+
+    // mise à jour des couchages pour la suite de l'hiver
+    cr.eq.forEach(function (c, i) {
+      var real = st.crew.find(function (x) { return x.id === c.id; });
+      if (real) real.couchage = cr.mods[place[i]].id;
+    });
+
+    var propre = dIntegrite === 0 && crewR.every(function (r) { return r.t === 'ok'; });
+    if (propre) { dCohesion += 7; shared.push('Nuit sans incident. C\'est rare, et tout le monde l\'a remarqué.'); }
+
+    return {
+      tech: tech, crew: crewR, shared: shared,
+      dIntegrite: dIntegrite, dCohesion: dCohesion,
+      journal: {
+        titre: 'Nuit à ' + cr.dehors + ' °C',
+        txt: propre
+          ? 'Chauffage réparti sans casse et sans personne dans le froid.'
+          : 'Répartition du chauffage : ' + (dIntegrite <= -9 ? 'une conduite perdue. ' : '') + (crewR.some(function (r) { return r.t === 'bad'; }) ? 'Quelqu\'un a payé la nuit.' : 'ça a tenu, de justesse.')
+      }
+    };
+  }
+
+  /* ============================================================
+     CRISE 2 — DIAGNOSTIC CROISÉ
+     Lui : capteurs, boucles de ventilation, historique d'entretien.
+     Elle : symptômes, horaires, habitudes. Ni l'un ni l'autre seul.
+     ============================================================ */
+  var CAUSES = [
+    { id: 'FILTRE', nom: 'Filtre à air saturé', fix: 'REMPLACER' },
+    { id: 'FUITE', nom: 'Fuite d\'échappement du groupe', fix: 'ETANCHER' },
+    { id: 'SCRUBBER', nom: 'Épurateur de CO₂ en panne', fix: 'REPARER' },
+    { id: 'EAU', nom: 'Réservoir d\'eau contaminé', fix: 'PURGER' },
+    { id: 'MOISISSURE', nom: 'Moisissure dans un module', fix: 'ASSECHER' }
+  ];
+  var FIXES = [
+    { id: 'REMPLACER', nom: 'Remplacer le filtre du module' },
+    { id: 'ETANCHER', nom: 'Étancher le conduit d\'échappement' },
+    { id: 'REPARER', nom: 'Démonter et réparer l\'épurateur' },
+    { id: 'PURGER', nom: 'Purger et rebasculer le réservoir' },
+    { id: 'ASSECHER', nom: 'Assécher et traiter le module' },
+    { id: 'PALLIATIF', nom: 'Ventilation manuelle + module évacué (parer sans savoir)' }
+  ];
+
+  function genDiagnostic(st, rng, forcee) {
+    var eq = actifs(st);
+    var habs = habitables(st);
+    var byMod = {};
+    eq.forEach(function (c) {
+      var m = habs.some(function (h) { return h.id === c.couchage; }) ? c.couchage : habs[0].id;
+      (byMod[m] = byMod[m] || []).push(c);
+    });
+    var occupied = Object.keys(byMod);
+
+    // choix de la cause parmi celles que l'état rend possibles
+    var pool = [];
+    occupied.forEach(function (m) { pool.push('FILTRE', 'MOISISSURE'); });
+    if (byMod['DORTOIR_B'] && byMod['DORTOIR_B'].some(function (c) { return c.rythme === 'jour'; })) pool.push('FUITE', 'FUITE');
+    var boucles = {};
+    occupied.forEach(function (m) { var b = st.modules[m].boucle; (boucles[b] = boucles[b] || []).push(m); });
+    var multi = Object.keys(boucles).filter(function (b) { return boucles[b].length >= 2; });
+    if (multi.length) pool.push('SCRUBBER', 'SCRUBBER');
+    if (eq.length >= 3) pool.push('EAU','EAU');
+    // une cause laissée sans réponse revient : on régénère tous les indices
+    // autour d'elle, sinon le relevé ne collerait plus aux symptômes.
+    var causeId = (forcee && pool.indexOf(forcee) >= 0) ? forcee : rng.pick(pool);
+    var cause = CAUSES.find(function (c) { return c.id === causeId; });
+
+    var cible = null, boucle = null, atteints = [], exempt = null, exemptRaison = null;
+    if (causeId === 'FILTRE') {
+      cible = rng.pick(occupied);
+      atteints = byMod[cible].slice();
+    } else if (causeId === 'MOISISSURE') {
+      cible = rng.pick(occupied);
+      atteints = byMod[cible].slice();
+    } else if (causeId === 'FUITE') {
+      cible = 'DORTOIR_B';
+      atteints = byMod[cible].filter(function (c) { return c.rythme === 'jour'; });
+      var nuiteux = byMod[cible].filter(function (c) { return c.rythme === 'nuit'; })[0];
+      if (nuiteux) { exempt = nuiteux; exemptRaison = 'travaille de nuit : il n\'est jamais dans le module quand le groupe tourne à pleine charge'; }
+    } else if (causeId === 'SCRUBBER') {
+      boucle = Number(rng.pick(multi));
+      var modsB = boucles[boucle];
+      modsB.forEach(function (m) { atteints = atteints.concat(byMod[m]); });
+      cible = modsB.join(' + ');
+    } else if (causeId === 'EAU') {
+      var the = eq.filter(function (c) { return c.boisson === 'thé'; })[0];
+      atteints = eq.filter(function (c) { return c.boisson !== 'thé'; });
+      if (the) { exempt = the; exemptRaison = 'ne boit que du thé, toujours bouilli'; }
+    }
+    if (!atteints.length) { atteints = [eq[0]]; }
+
+    // symptômes par famille de cause
+    var SYMPT = {
+      FILTRE: ['maux de tête au réveil', 'fatigue lourde qui ne passe pas', 'difficulté à se concentrer'],
+      FUITE: ['maux de tête violents au réveil', 'nausées', 'vertiges qui passent dès qu\'on sort'],
+      SCRUBBER: ['essoufflement au moindre effort', 'maux de tête diffus', 'somnolence en journée'],
+      EAU: ['crampes abdominales', 'nausées et diarrhée', 'pas de fièvre'],
+      MOISISSURE: ['toux sèche persistante', 'gorge irritée', 'yeux qui piquent le matin']
+    };
+    var symptomes = atteints.map(function (c, i) {
+      var s = rng.shuffle(SYMPT[causeId]).slice(0, 2);
+      return { id: c.id, nom: c.prenom, sympt: s, couchage: c.couchage, rythme: c.rythme, boisson: c.boisson };
+    });
+
+    // leurre : quelqu'un de non atteint se plaint d'autre chose
+    var sains = eq.filter(function (c) { return !atteints.some(function (a) { return a.id === c.id; }) && (!exempt || c.id !== exempt.id); });
+    var leurre = null;
+    if (sains.length) {
+      var l = rng.pick(sains);
+      leurre = {
+        nom: l.prenom, couchage: l.couchage,
+        sympt: rng.pick([
+          'poignet enflé — s\'est tordu la main en déchargeant la chenillette avant-hier',
+          'migraine, mais elle en a chaque hiver depuis dix ans, toujours à la même période',
+          'dos bloqué depuis qu\'il a déplacé les bidons de la réserve',
+          'ampoules et gerçures aux mains, rien d\'autre'
+        ])
+      };
+    }
+
+    // relevés techniques : signature de la cause + un faux positif
+    // Seuil d'alerte affiché au poste technique : 1000 ppm de CO₂ la nuit.
+    // Le bruit de fond reste sous 760, les deux causes qui chargent l'air
+    // passent largement au-dessus : c'est le NOMBRE de modules touchés,
+    // pas la valeur, qui sépare un filtre d'un épurateur.
+    var releves = habs.map(function (m) {
+      var co2j = rng.range(480, 640), co2n = co2j + rng.range(40, 110);
+      var hum = rng.range(38, 54), co = 0;
+      var age = rng.range(6, 26), duree = 30;
+      if (causeId === 'FILTRE' && m.id === cible) { co2j += rng.range(300, 420); co2n += rng.range(620, 820); age = rng.range(37, 58); }
+      if (causeId === 'MOISISSURE' && m.id === cible) { hum = rng.range(74, 86); }
+      if (causeId === 'FUITE' && m.id === cible) { co = rng.range(28, 52); co2n += rng.range(60, 140); }
+      if (causeId === 'SCRUBBER' && m.boucle === boucle) { co2j += rng.range(280, 380); co2n += rng.range(560, 760); }
+      return { id: m.id, nom: m.nom, boucle: m.boucle, co2j: co2j, co2n: co2n, hum: hum, co: co, filtreAge: age, filtreDuree: duree };
+    });
+    // faux positif : un relevé limite ailleurs
+    var autres = releves.filter(function (r) { return r.id !== cible; });
+    if (autres.length) {
+      var fp = rng.pick(autres);
+      if (rng.chance(0.5)) fp.filtreAge = rng.range(31, 36); else fp.hum = rng.range(62, 69);
+    }
+    var epurateur = causeId === 'SCRUBBER'
+      ? { boucle: boucle, rendement: rng.range(31, 48), etat: 'rendement anormal' }
+      : { boucle: rng.pick([1, 2]), rendement: rng.range(88, 97), etat: 'nominal' };
+    var eau = causeId === 'EAU'
+      ? { cuve: rng.pick(['B', 'C']), turbidite: (rng.range(24, 52) / 10).toFixed(1), chlore: (rng.range(1, 6) / 100).toFixed(2), depuis: rng.range(4, 9) }
+      : { cuve: rng.pick(['A', 'B']), turbidite: (rng.range(2, 8) / 10).toFixed(1), chlore: (rng.range(28, 44) / 100).toFixed(2), depuis: rng.range(9, 25) };
+    var groupe = { charge: rng.range(86, 98), cycle: '22 h 00 – 06 h 00', heures: rng.range(2100, 3400) };
+
+    return {
+      type: 'diagnostic',
+      titre: 'Diagnostic croisé',
+      chapeau: 'Plusieurs personnes vont mal. Nadia veut un nom sur ce qui se passe avant de traiter à l\'aveugle.',
+      causeVraie: causeId, cible: cible, boucle: boucle,
+      symptomes: symptomes, exempt: exempt ? { nom: exempt.prenom, couchage: exempt.couchage, raison: exemptRaison } : null,
+      leurre: leurre, releves: releves, epurateur: epurateur, eau: eau, groupe: groupe,
+      equipage: eq.map(function (c) {
+        return { nom: c.prenom, role: c.role, couchage: st.modules[c.couchage] ? st.modules[c.couchage].nom : '—', couchageId: c.couchage, rythme: c.rythme, boisson: c.boisson };
+      }),
+      widths: [3, 3, 2],
+      defaut: [0, 5, 0]
+    };
+  }
+
+  function resDiagnostic(st, cr, dec, rng) {
+    var iCause = dec[0] % CAUSES.length, iFix = dec[1] % FIXES.length;
+    var cause = CAUSES[iCause], fix = FIXES[iFix];
+    var vrai = CAUSES.find(function (c) { return c.id === cr.causeVraie; });
+    var tech = [], crewR = [], shared = [];
+    var dI = 0, dC = 0;
+
+    var bon = fix.id === vrai.fix;
+    var palliatif = fix.id === 'PALLIATIF';
+
+    if (bon) {
+      tech.push({ t: 'good', txt: 'Cause confirmée : ' + vrai.nom + '. L\'intervention a réglé le problème à la source.' });
+      shared.push('Le lendemain, tout le monde respirait mieux. Nadia a noté la cause au tableau.');
+      dI += 6; dC += 8;
+      st.dette = st.dette.filter(function (d) { return !(d.type === 'diagnostic' && d.cause === cr.causeVraie); });
+      cr.symptomes.forEach(function (s) { applySante(st, s.id, +14); applyMoral(st, s.id, +7); });
+      crewR.push({ t: 'good', txt: 'Les symptômes ont reculé en moins de deux jours.' });
+      if (cause.id !== vrai.id) tech.push({ t: 'warn', txt: 'Hypothèse notée : ' + cause.nom + '. Ce n\'était pas tout à fait ça, mais le geste était le bon.' });
+    } else if (palliatif) {
+      tech.push({ t: 'warn', txt: 'Ventilation manuelle et module évacué. La cause reste inconnue : ' + vrai.nom + ' continue d\'agir, en sourdine.' });
+      shared.push('On a ouvert, ventilé, déplacé les gens. Ça soulage. Ça ne règle rien.');
+      dI -= 3; dC -= 2;
+      cr.symptomes.forEach(function (s) { applySante(st, s.id, +4); });
+      st.dette.push({ type: 'diagnostic', cause: cr.causeVraie, cible: cr.cible, boucle: cr.boucle, jour: st.jour });
+      crewR.push({ t: 'warn', txt: 'Les symptômes stagnent. Personne n\'est dupe.' });
+    } else {
+      tech.push({ t: 'bad', txt: 'Intervention sur la mauvaise piste. La vraie cause était : ' + vrai.nom + '.' });
+      shared.push('Deux jours perdus, du matériel consommé, et les malades toujours malades.');
+      dI -= 8; dC -= 9;
+      cr.symptomes.forEach(function (s) { applySante(st, s.id, -13); applyMoral(st, s.id, -10); });
+      st.dette.push({ type: 'diagnostic', cause: cr.causeVraie, cible: cr.cible, boucle: cr.boucle, jour: st.jour });
+      crewR.push({ t: 'bad', txt: 'L\'état des malades s\'est aggravé. Nadia a demandé qu\'on reprenne le raisonnement de zéro.' });
+    }
+    return {
+      tech: tech, crew: crewR, shared: shared, dIntegrite: dI, dCohesion: dC,
+      journal: {
+        titre: bon ? 'Cause trouvée : ' + vrai.nom.toLowerCase() : palliatif ? 'Paré sans comprendre' : 'Mauvaise piste',
+        txt: bon ? 'Diagnostic juste du premier coup.' : palliatif ? 'On a gagné du temps contre du matériel. La cause court toujours.' : 'On a traité ce qui n\'était pas malade.'
+      }
+    };
+  }
+
+  /* ============================================================
+     CRISE 3 — LA TEMPÊTE
+     Lui : les tâches, les compétences exigées, les heures, ce qui casse.
+     Elle : qui sait faire, qui tient debout, qui panique dehors.
+     ============================================================ */
+  var TACHES = [
+    { id: 't1', nom: 'Arrimer les panneaux de l\'antenne', sk: 'soudure', niv: 1, h: 3, sev: 6, ext: true, csq: 'Les panneaux partent au vent et découvrent le toit du Carré.' },
+    { id: 't2', nom: 'Purger la conduite de fioul', sk: 'mecanique', niv: 2, h: 2, sev: 7, ext: false, csq: 'Le fioul se fige dans la conduite : plus de groupe pendant la tempête.' },
+    { id: 't3', nom: 'Renforcer la porte du sas ouest', sk: 'soudure', niv: 2, h: 4, sev: 9, ext: true, csq: 'La porte cède. On perd le sas et une partie de la réserve.' },
+    { id: 't4', nom: 'Basculer le réseau sur la batterie tampon', sk: 'electricite', niv: 2, h: 2, sev: 7, ext: false, csq: 'Une coupure et tout s\'éteint d\'un coup, chauffage compris.' },
+    { id: 't5', nom: 'Rentrer le matériel de carottage', sk: 'logistique', niv: 1, h: 3, sev: 4, ext: true, csq: 'Six mois de carottes de glace ensevelies. Perte sèche pour la science.' },
+    { id: 't6', nom: 'Haubaner l\'antenne radio', sk: 'informatique', niv: 1, h: 2, sev: 8, ext: true, csq: 'Plus de radio : aucun contact avec la base côtière jusqu\'au printemps.' },
+    { id: 't7', nom: 'Dégager les prises d\'air du toit', sk: 'mecanique', niv: 1, h: 2, sev: 5, ext: true, csq: 'Les prises d\'air se bouchent : l\'air devient irrespirable module par module.' },
+    { id: 't8', nom: 'Mettre la serre en survie', sk: 'science', niv: 1, h: 2, sev: 6, ext: false, csq: 'Les cultures gèlent. Retour aux conserves jusqu\'au printemps.' },
+    { id: 't9', nom: 'Sangler la chenillette et vider son circuit', sk: 'pilotage', niv: 1, h: 3, sev: 5, ext: true, csq: 'La chenillette est retournée par le vent. Plus de sorties possibles.' }
+  ];
+
+  function genTempete(st, rng) {
+    var eq = actifs(st);
+    var fenetre = rng.range(7, 10);
+    var dispo = TACHES.filter(function (t) {
+      if (t.id === 't8' && !st.modules.SERRE.built) return false;
+      return true;
+    });
+    var n = Math.min(5, Math.max(4, eq.length));
+    var taches = rng.picks(dispo, n).map(function (t) {
+      return Object.assign({}, t, { h: Math.max(1, t.h + (rng.chance(0.3) ? 1 : 0)), sev: t.sev + (st.annee - 1) * 2 });
+    });
+    var vent = rng.range(110, 165) + (st.annee - 1) * 10;
+
+    return {
+      type: 'tempete',
+      titre: 'La tempête',
+      chapeau: 'Le front arrive dans ' + fenetre + ' heures, ' + vent + ' km/h annoncés. Il y a plus à faire que d\'heures pour le faire.',
+      fenetre: fenetre, vent: vent, taches: taches, eq: eq,
+      fiches: eq.map(function (c) {
+        var certs = Object.keys(c.sk).map(function (k) { return SKILL_LABEL[k] + ' niv. ' + c.sk[k]; });
+        var etat = c.etat === 'blesse' ? 'blessé — ' + (c.bobo || 'main immobilisée')
+          : c.etat === 'malade' ? 'malade — ' + (c.bobo || 'fiévreux')
+            : c.sante < 60 ? 'épuisé, tient sur les nerfs'
+              : c.moral < 45 ? 'moral au plus bas' : 'en état de travailler';
+        return { id: c.id, nom: c.prenom, role: c.role, certs: certs, etat: etat, trait: c.trait.label, traitId: c.trait.id, note: c.trait.note };
+      }),
+      widths: taches.map(function () { return 3; }).concat([2]),
+      defaut: taches.map(function (_, i) { return Math.min(eq.length, i % (eq.length + 1)); }).concat([0])
+    };
+  }
+
+  function resTempete(st, cr, dec, rng) {
+    var SKIP = cr.eq.length; // dernière valeur = ne pas faire
+    var assign = dec.slice(0, cr.taches.length).map(function (v) { return v > cr.eq.length ? SKIP : v; });
+    var tech = [], crewR = [], shared = [];
+    var dI = 0, dC = 0;
+    var heures = {};
+
+    cr.taches.forEach(function (t, i) {
+      var ai = assign[i];
+      if (ai === SKIP) {
+        dI -= t.sev;
+        tech.push({ t: 'bad', txt: 'Non faite — ' + t.nom + '. ' + t.csq });
+        shared.push(t.csq);
+        return;
+      }
+      var c = cr.eq[ai];
+      if (!c) { dI -= t.sev; tech.push({ t: 'bad', txt: 'Non faite — ' + t.nom + '.' }); return; }
+      heures[c.id] = (heures[c.id] || 0) + t.h;
+      var niv = c.sk[t.sk] || 0;
+      var real = st.crew.find(function (x) { return x.id === c.id; });
+
+      if (niv === 0) {
+        dI -= Math.round(t.sev * 0.8);
+        tech.push({ t: 'bad', txt: 'Échec — ' + t.nom + ' : personne de non qualifié en ' + SKILL_LABEL[t.sk] + '. ' + t.csq });
+        crewR.push({ t: 'bad', txt: c.nom.split(' ')[0] + ' a essayé. Ce n\'était pas son métier, et ça s\'est vu.' });
+        applyMoral(st, c.id, -10);
+        if (t.ext && rng.chance(0.45)) { applySante(st, c.id, -18, 'gelures aux mains'); setEtat(st, c.id, 'blesse', 'gelures aux mains'); crewR.push({ t: 'bad', txt: c.nom.split(' ')[0] + ' est rentré avec les mains gelées.' }); }
+      } else if (niv < t.niv) {
+        dI -= Math.round(t.sev * 0.35);
+        tech.push({ t: 'warn', txt: 'Partiel — ' + t.nom + ' : niveau ' + niv + ' pour un travail de niveau ' + t.niv + '. Ça tiendra peut-être.' });
+        applySante(st, c.id, -7); applyMoral(st, c.id, -3);
+      } else if (t.ext && c.trait.id === 'exterieur') {
+        dI -= Math.round(t.sev * 0.5);
+        tech.push({ t: 'bad', txt: 'Abandonnée en cours — ' + t.nom + '.' });
+        crewR.push({ t: 'bad', txt: c.nom.split(' ')[0] + ' est ressorti au bout de dix minutes, incapable de continuer dans le vent. On le savait.' });
+        applyMoral(st, c.id, -14);
+      } else if (real && (real.etat === 'malade' || real.etat === 'blesse')) {
+        dI -= Math.round(t.sev * 0.25);
+        tech.push({ t: 'warn', txt: 'Fait, mal — ' + t.nom + '.' });
+        applySante(st, c.id, -16, 'a travaillé en étant déjà atteint');
+        crewR.push({ t: 'bad', txt: c.nom.split(' ')[0] + ' a fait le travail alors qu\'' + (genre(c) === 'il' ? 'il' : 'elle') + ' n\'était pas en état. Ça se paiera.' });
+      } else {
+        tech.push({ t: 'good', txt: 'Fait — ' + t.nom + '.' });
+        applyMoral(st, c.id, +4);
+        if (t.ext) applySante(st, c.id, -3);
+      }
+    });
+
+    // dépassement horaire
+    Object.keys(heures).forEach(function (id) {
+      if (heures[id] > cr.fenetre) {
+        var c = st.crew.find(function (x) { return x.id === id; });
+        dI -= 5;
+        tech.push({ t: 'bad', txt: (c ? c.prenom : '?') + ' : ' + heures[id] + ' h de travail affectées pour une fenêtre de ' + cr.fenetre + ' h. La dernière tâche a été bâclée.' });
+        applySante(st, id, -14, 'épuisement'); applyMoral(st, id, -8);
+      } else if (heures[id] >= cr.fenetre - 1) {
+        applySante(st, id, -6);
+      }
+    });
+
+    var faites = cr.taches.filter(function (t, i) { return assign[i] !== SKIP; }).length;
+    if (dI === 0) { dC += 8; shared.push('La tempête a passé sur une station entièrement arrimée. Personne n\'y croyait.'); }
+    return {
+      tech: tech, crew: crewR, shared: shared, dIntegrite: dI, dCohesion: dC,
+      journal: {
+        titre: 'Tempête, ' + cr.vent + ' km/h',
+        txt: faites + ' tâche' + (faites > 1 ? 's' : '') + ' sur ' + cr.taches.length + ' menée' + (faites > 1 ? 's' : '') + ' avant le front. ' + (dI === 0 ? 'Rien n\'a cédé.' : dI < -12 ? 'La station a encaissé des dégâts.' : 'Quelques pertes, rien d\'irréparable.')
+      }
+    };
+  }
+
+  /* ---------- effets sur l'équipage ---------- */
+  function nomOf(st, id) { var c = st.crew.find(function (x) { return x.id === id; }); return c ? c.prenom : '?'; }
+  function genre(c) { return /a$|e$|ine$|ren$/i.test(c.prenom) ? 'elle' : 'il'; }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function applySante(st, id, d, motif) {
+    var c = st.crew.find(function (x) { return x.id === id; });
+    if (!c) return;
+    c.sante = clamp(c.sante + d, 0, 100);
+    if (d < 0 && motif) c.bobo = motif;
+    if (c.sante <= 0) { c.etat = 'critique'; c.bobo = motif || c.bobo || 'état critique'; }
+    else if (c.sante < 35 && c.etat === 'ok') { c.etat = 'malade'; c.bobo = motif || c.bobo; }
+    else if (c.sante >= 70 && (c.etat === 'malade' || c.etat === 'critique')) { c.etat = 'ok'; c.bobo = null; }
+  }
+  function applyMoral(st, id, d) {
+    var c = st.crew.find(function (x) { return x.id === id; });
+    if (!c) return;
+    c.moral = clamp(c.moral + d, 0, 100);
+  }
+  function setEtat(st, id, etat, bobo) {
+    var c = st.crew.find(function (x) { return x.id === id; });
+    if (!c) return;
+    if (c.etat !== 'critique') c.etat = etat;
+    if (bobo) c.bobo = bobo;
+  }
+
+  /* ---------- génération de la crise courante ---------- */
+  var TYPES = ['thermique', 'diagnostic', 'tempete'];
+  function crisisFor(st) {
+    if (st.fini) return null;
+    var rng = makeRng(st.seed + '|crise|' + st.annee + '|' + st.session);
+    var t;
+    if (st.session === 0) t = 'thermique';
+    else if (st.session === 1) t = 'diagnostic';
+    else if (st.session === 2) t = 'tempete';
+    else {
+      var choix = TYPES.filter(function (x) { return x !== st.lastType; });
+      t = rng.pick(choix);
+    }
+    // une dette de diagnostic non réglée revient, en pire
+    var dette = st.dette.filter(function (d) { return d.type === 'diagnostic'; })[0];
+    if (dette && st.session > 1 && rng.chance(0.55)) t = 'diagnostic';
+
+    var cr = t === 'thermique' ? genThermique(st, rng)
+      : t === 'diagnostic' ? genDiagnostic(st, rng, dette ? dette.cause : null)
+        : genTempete(st, rng);
+    if (t === 'diagnostic' && dette && cr.causeVraie === dette.cause) {
+      cr.rappel = 'Ce n\'est pas nouveau : le même problème avait été laissé de côté au jour ' + dette.jour + '. Il est revenu, plus net.';
+    }
+    cr.chantiers = chantiersDispo(st);
+    return cr;
+  }
+
+  function chantiersDispo(st) {
+    var opts = [{ id: 'REPOS', nom: 'Repos de l\'équipage', desc: 'Six jours sans corvée en plus du strict nécessaire. La santé et le moral remontent.' }];
+    var abimes = Object.keys(st.modules).map(function (k) { return st.modules[k]; }).filter(function (m) { return m.built && m.dmg > 0; });
+    if (abimes.length) {
+      abimes.sort(function (a, b) { return b.dmg - a.dmg; });
+      opts.push({ id: 'REPARER', nom: 'Réparer ' + abimes[0].nom, desc: 'Remet le module en service et rend de l\'intégrité à la station.', cible: abimes[0].id });
+    }
+    var ch = st.chantier ? CHANTIERS.find(function (c) { return c.id === st.chantier; }) : null;
+    if (ch) {
+      opts.push({ id: 'CHANTIER', nom: 'Avancer : ' + ch.nom, desc: ch.effet + ' (' + st.chantierFait + '/' + ch.cout + ' semaines)', cible: ch.id });
+    } else {
+      var libres = CHANTIERS.filter(function (c) { return !st.modules[c.id].built; });
+      if (libres.length) {
+        var rng2 = makeRng(st.seed + '|chantier|' + st.session);
+        var prop = rng2.pick(libres);
+        opts.push({ id: 'OUVRIR', nom: 'Ouvrir le chantier : ' + prop.nom, desc: prop.effet + ' (' + prop.cout + ' semaines de travail)', cible: prop.id });
+      }
+    }
+    if (opts.length < 4) opts.push({ id: 'STOCK', nom: 'Inventaire et rangement', desc: 'Personne n\'aime ça, mais la station y gagne un peu de marge.' });
+    return opts.slice(0, 4);
+  }
+
+  /* ---------- application d'une décision ---------- */
+  function applySemaine(st, cr, choixIdx) {
+    var opts = cr.chantiers || chantiersDispo(st);
+    var o = opts[choixIdx % opts.length];
+    var out = [];
+    if (!o) return out;
+    if (o.id === 'REPOS') {
+      st.crew.forEach(function (c) {
+        if (c.etat === 'perdu') return;
+        var soin = st.modules.INFIRMERIE.built ? 22 : 12;
+        applySante(st, c.id, soin); applyMoral(st, c.id, 10);
+      });
+      st.cohesion = clamp(st.cohesion + 5, 0, 100);
+      out.push('Semaine de répit. Les visages ont changé.');
+    } else if (o.id === 'REPARER') {
+      var m = st.modules[o.cible];
+      m.dmg = 0;
+      st.integrite = clamp(st.integrite + 11, 0, 100);
+      out.push(m.nom + ' remis en service.');
+    } else if (o.id === 'OUVRIR') {
+      st.chantier = o.cible; st.chantierFait = 1;
+      out.push('Chantier ouvert : ' + st.modules[o.cible].nom + '.');
+    } else if (o.id === 'CHANTIER') {
+      st.chantierFait += 1;
+      var def = CHANTIERS.find(function (c) { return c.id === st.chantier; });
+      if (def && st.chantierFait >= def.cout) {
+        st.modules[st.chantier].built = true;
+        out.push(def.nom + ' terminé' + (st.chantier === 'SERRE' ? 'e' : '') + '. ' + def.effet);
+        st.chantier = null; st.chantierFait = 0;
+        st.cohesion = clamp(st.cohesion + 6, 0, 100);
+      } else {
+        out.push('Le chantier avance : ' + st.chantierFait + '/' + (def ? def.cout : '?') + '.');
+      }
+    } else {
+      st.integrite = clamp(st.integrite + 4, 0, 100);
+      out.push('Inventaire fait. Deux caisses retrouvées derrière la réserve.');
+    }
+    return out;
+  }
+
+  function derive(st) {
+    // dérive lente entre deux crises
+    var serre = st.modules.SERRE.built;
+    st.crew.forEach(function (c) {
+      if (c.etat === 'perdu') return;
+      if (!serre) applyMoral(st, c.id, -3);
+      if (c.etat === 'malade') applySante(st, c.id, st.modules.INFIRMERIE.built ? +6 : -4);
+      else if (c.etat === 'blesse') applySante(st, c.id, st.modules.INFIRMERIE.built ? +9 : +4);
+      else applySante(st, c.id, +5);
+      if (c.sante > 62 && (c.etat === 'blesse' || c.etat === 'malade')) { c.etat = 'ok'; c.bobo = null; }
+    });
+    var moyMoral = st.crew.reduce(function (s, c) { return s + c.moral; }, 0) / st.crew.length;
+    st.cohesion = clamp(Math.round(st.cohesion * 0.72 + moyMoral * 0.28), 0, 100);
+    var dmg = Object.keys(st.modules).reduce(function (s, k) { return s + (st.modules[k].built ? st.modules[k].dmg : 0); }, 0);
+    st.integrite = clamp(st.integrite - dmg * 2, 0, 100);
+  }
+
+  function resolve(st, cr, dec) {
+    var rng = makeRng(st.seed + '|res|' + st.annee + '|' + st.session + '|' + dec.join(','));
+    var r = cr.type === 'thermique' ? resThermique(st, cr, dec, rng)
+      : cr.type === 'diagnostic' ? resDiagnostic(st, cr, dec, rng)
+        : resTempete(st, cr, dec, rng);
+
+    st.integrite = clamp(st.integrite + r.dIntegrite, 0, 100);
+    st.cohesion = clamp(st.cohesion + r.dCohesion, 0, 100);
+
+    if (!r.shared.length) {
+      r.shared.push(cr.type === 'thermique'
+        ? 'La nuit est passée sans rien de remarquable. C\'est déjà quelque chose.'
+        : cr.type === 'tempete'
+          ? 'Le front est passé sur la station. Au matin, il a fallu compter ce qui restait.'
+          : 'La semaine a suivi son cours, avec ce qu\'on en savait.');
+    }
+    var semaine = applySemaine(st, cr, dec[dec.length - 1]);
+    derive(st);
+
+    // état critique prolongé
+    st.crew.forEach(function (c) {
+      if (c.etat === 'critique' && c.sante <= 0) {
+        if (c._criseDepuis == null) c._criseDepuis = st.session;
+        else if (st.session - c._criseDepuis >= 2) {
+          c.etat = 'perdu';
+          st.cohesion = clamp(st.cohesion - 22, 0, 100);
+          r.shared.push(c.nom + ' n\'a pas tenu. On a arrêté les machines une minute, dehors, tous ensemble.');
+        }
+      } else if (c.etat !== 'critique') { c._criseDepuis = null; }
+    });
+
+    st.journal.push({
+      jour: st.jour, annee: st.annee, titre: r.journal.titre, txt: r.journal.txt,
+      semaine: semaine.join(' '), integrite: st.integrite, cohesion: st.cohesion
+    });
+    st.lastType = cr.type;
+    st.session += 1;
+    st.jour += JOURS_SESSION;
+
+    if (st.integrite <= 0) { st.fini = true; st.issue = 'station'; }
+    else if (actifs(st).length <= 1) { st.fini = true; st.issue = 'equipage'; }
+    else if (st.jour > JOURS_HIVER) { st.fini = true; st.issue = 'printemps'; }
+
+    return { tech: r.tech, crew: r.crew, shared: r.shared, semaine: semaine };
+  }
+
+  /* ---------- rejeu complet ---------- */
+  function replay(seed, codes) {
+    var st = initialState(seed);
+    var resolutions = [];
+    for (var i = 0; i < codes.length; i++) {
+      if (codes[i] === '*') { nouvelHiver(st); continue; }
+      var cr = crisisFor(st);
+      if (!cr) break;
+      var dec = unpackCode(codes[i], cr.widths);
+      if (!dec) break;
+      resolutions.push(resolve(st, cr, dec));
+    }
+    st.derniere = resolutions[resolutions.length - 1] || null;
+    return st;
+  }
+
+  function nouvelHiver(st) {
+    var survivants = st.crew.filter(function (c) { return c.etat !== 'perdu'; });
+    st.annee += 1; st.jour = 1; st.session = 0; st.fini = false; st.issue = null;
+    st.dette = []; st.lastType = null;
+    st.crew = survivants;
+    st.integrite = clamp(st.integrite - 6, 25, 100);
+    Object.keys(st.modules).forEach(function (k) { if (st.modules[k].built) st.modules[k].dmg = Math.max(0, st.modules[k].dmg - 1); });
+    return st;
+  }
+
+  root.Boree = {
+    makeRng: makeRng, newSeed: newSeed, packCode: packCode, unpackCode: unpackCode,
+    normCode: normCode, stateCode: stateCode, emitCode: emitCode, readCode: readCode,
+    initialState: initialState, crisisFor: crisisFor, resolve: resolve, replay: replay,
+    nouvelHiver: nouvelHiver, actifs: actifs, habitables: habitables, relOf: relOf,
+    CAUSES: CAUSES, FIXES: FIXES, SKILL_LABEL: SKILL_LABEL, CHANTIERS: CHANTIERS,
+    JOURS_HIVER: JOURS_HIVER, tempAt: tempAt, genre: genre
+  };
+})(typeof module !== 'undefined' && module.exports ? module.exports : (typeof window !== 'undefined' ? window : globalThis));
+</script>
+<script>
+/* ============================================================
+   BORÉE — interface. Deux postes, deux lectures du même hiver.
+   ============================================================ */
+(function () {
+  'use strict';
+  var B = window.Boree;
+  var CLE = 'boree.save.v1';
+
+  /* ---------- petits outils DOM ---------- */
+  function H(tag, attrs) {
+    var el = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === 'class') el.className = attrs[k];
+      else if (k === 'text') el.textContent = attrs[k];
+      else if (k === 'html') el.innerHTML = attrs[k];
+      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), attrs[k]);
+      else if (attrs[k] != null) el.setAttribute(k, attrs[k]);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var c = arguments[i];
+      if (c == null || c === false) continue;
+      if (Array.isArray(c)) c.forEach(function (x) { if (x) el.appendChild(x); });
+      else if (typeof c === 'string') el.appendChild(document.createTextNode(c));
+      else el.appendChild(c);
+    }
+    return el;
+  }
+  function vide(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
+  function $(id) { return document.getElementById(id); }
+
+  /* ---------- sauvegarde ---------- */
+  var save = { seed: null, decisions: [], poste: null };
+  function charger() {
+    try {
+      var raw = localStorage.getItem(CLE);
+      if (!raw) return false;
+      var o = JSON.parse(raw);
+      if (!o || !o.seed) return false;
+      save = { seed: o.seed, decisions: o.decisions || [], poste: o.poste || null };
+      return true;
+    } catch (e) { return false; }
+  }
+  function enregistrer() {
+    try { localStorage.setItem(CLE, JSON.stringify(save)); } catch (e) { /* navigation privée : on continue sans */ }
+  }
+  function chaineReprise() { return save.seed + (save.decisions.length ? '-' + save.decisions.join('-') : ''); }
+
+  /* ---------- état courant ---------- */
+  var st = null, cr = null, dec = null, ecranCourant = 'accueil';
+
+  function recalculer() {
+    st = B.replay(save.seed, save.decisions);
+    cr = B.crisisFor(st);
+    dec = cr ? cr.defaut.slice() : null;
+  }
+
+  /* ---------- neige ---------- */
+  function neige() {
+    var c = $('neige'), x = c.getContext('2d'), fl = [], w = 0, h = 0;
+    var reduit = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function taille() {
+      w = c.width = c.offsetWidth * (window.devicePixelRatio > 1 ? 2 : 1);
+      h = c.height = c.offsetHeight * (window.devicePixelRatio > 1 ? 2 : 1);
+    }
+    taille();
+    window.addEventListener('resize', taille);
+    for (var i = 0; i < 70; i++) fl.push({ x: Math.random(), y: Math.random(), v: 0.0004 + Math.random() * 0.0011, d: 0.0006 + Math.random() * 0.0014, r: 0.5 + Math.random() * 1.4, a: 0.16 + Math.random() * 0.4 });
+    function boucle() {
+      x.clearRect(0, 0, w, h);
+      for (var i = 0; i < fl.length; i++) {
+        var f = fl[i];
+        f.y += f.v; f.x += f.d;
+        if (f.y > 1) { f.y = -0.02; f.x = Math.random(); }
+        if (f.x > 1.02) f.x = -0.02;
+        x.globalAlpha = f.a;
+        x.fillStyle = '#dce6f0';
+        x.beginPath();
+        x.arc(f.x * w, f.y * h, f.r * (window.devicePixelRatio > 1 ? 2 : 1), 0, 6.283);
+        x.fill();
+      }
+      requestAnimationFrame(boucle);
+    }
+    if (!reduit) boucle();
+  }
+
+  /* ---------- schéma de la station ---------- */
+  var NS = 'http://www.w3.org/2000/svg';
+  function s(tag, attrs) {
+    var el = document.createElementNS(NS, tag);
+    Object.keys(attrs || {}).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+    return el;
+  }
+  function schema() {
+    var CW = 96, CH = 78, BW = 84, BH = 62, PAD = 10;
+    var svg = s('svg', { viewBox: '0 0 ' + (4 * CW + PAD * 2 - 12) + ' ' + (3 * CH + PAD * 2 - 16), role: 'img' });
+    svg.setAttribute('aria-label', 'Schéma de la station');
+    var mods = Object.keys(st.modules).map(function (k) { return st.modules[k]; });
+    function px(m) { return { x: PAD + m.x * CW, y: PAD + (m.y - 1) * CH }; }
+    var poste = save.poste;
+
+    // couloirs
+    mods.forEach(function (a) {
+      mods.forEach(function (b) {
+        if (a.id >= b.id) return;
+        if (!a.built || !b.built) return;
+        var dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
+        if (dx + dy !== 1) return;
+        var pa = px(a), pb = px(b);
+        svg.appendChild(s('line', {
+          x1: pa.x + BW / 2, y1: pa.y + BH / 2, x2: pb.x + BW / 2, y2: pb.y + BH / 2,
+          stroke: '#233141', 'stroke-width': 7, 'stroke-linecap': 'square'
+        }));
+      });
+    });
+
+    mods.forEach(function (m) {
+      var p = px(m), g = s('g', {});
+      var abime = m.built && m.dmg > 0;
+      if (!m.built) {
+        g.appendChild(s('rect', {
+          x: p.x, y: p.y, width: BW, height: BH, fill: 'none',
+          stroke: st.chantier === m.id ? '#3b4e63' : '#1b2532',
+          'stroke-width': 1, 'stroke-dasharray': '4 4'
+        }));
+      } else {
+        g.appendChild(s('rect', {
+          x: p.x, y: p.y, width: BW, height: BH,
+          fill: abime ? (m.dmg > 1 ? '#221314' : '#1d1a15') : '#141d27',
+          stroke: abime ? (m.dmg > 1 ? '#d9604a' : '#e4b44c') : '#2a3949',
+          'stroke-width': abime ? 1.4 : 1
+        }));
+      }
+      if (m.id === 'MACHINES' && m.built) {
+        var pulse = s('circle', { cx: p.x + BW / 2, cy: p.y + BH - 16, r: 4.5, fill: '#54d0e2', opacity: '0.85' });
+        var an = s('animate', { attributeName: 'opacity', values: '0.85;0.25;0.85', dur: '2.6s', repeatCount: 'indefinite' });
+        pulse.appendChild(an); g.appendChild(pulse);
+      }
+      var nom = s('text', {
+        x: p.x + 7, y: p.y + 15, fill: m.built ? (abime ? (m.dmg > 1 ? '#d9604a' : '#e4b44c') : '#cdd9e5') : '#4a5b6d',
+        'font-size': '9.5', 'font-family': 'IBM Plex Mono, monospace', 'letter-spacing': '0.5'
+      });
+      nom.textContent = m.nom.toUpperCase();
+      g.appendChild(nom);
+
+      var sous = s('text', { x: p.x + 7, y: p.y + 28, fill: '#5d6e80', 'font-size': '8', 'font-family': 'IBM Plex Mono, monospace' });
+      if (!m.built) {
+        sous.textContent = st.chantier === m.id ? 'CHANTIER ' + st.chantierFait + '/' + chantierCout(m.id) : 'NON CONSTRUIT';
+      } else if (abime) {
+        sous.textContent = m.dmg > 1 ? 'HORS SERVICE' : 'À RÉPARER';
+      } else if (poste !== 'equipage') {
+        sous.textContent = (m.boucle ? 'BOUCLE ' + m.boucle : 'HORS BOUCLE') + (m.hab ? ' · ' + Math.round(m.ins * 100) + '%' : '');
+      } else if (m.hab) {
+        sous.textContent = m.cap + (m.cap > 1 ? ' LITS' : ' LIT');
+      }
+      g.appendChild(sous);
+
+      // occupants : visibles au poste équipage, qui tient le registre humain
+      if (m.built && (poste === 'equipage' || poste === 'demo')) {
+        var gens = st.crew.filter(function (c) { return c.couchage === m.id && c.etat !== 'perdu'; });
+        gens.forEach(function (c, i) {
+          var col = c.etat === 'critique' ? '#d9604a' : (c.etat === 'malade' || c.etat === 'blesse') ? '#e4b44c' : '#e39a6c';
+          g.appendChild(s('circle', { cx: p.x + 11 + i * 13, cy: p.y + BH - 12, r: 4, fill: col }));
+          var ini = s('text', { x: p.x + 11 + i * 13, y: p.y + BH - 9.2, fill: '#0b1016', 'font-size': '5.6', 'font-family': 'IBM Plex Mono, monospace', 'text-anchor': 'middle', 'font-weight': '700' });
+          ini.textContent = c.prenom[0];
+          g.appendChild(ini);
+        });
+      }
+      svg.appendChild(g);
+    });
+    return H('div', { class: 'schema' }, svg);
+  }
+  function chantierCout(id) {
+    var c = B.CHANTIERS.filter(function (x) { return x.id === id; })[0];
+    return c ? c.cout : '?';
+  }
+
+  /* ---------- barre haute ---------- */
+  function barre() {
+    var b = vide($('barre'));
+    b.appendChild(H('span', { class: 'nom', text: 'Borée' }));
+    if (save.poste) {
+      b.appendChild(H('span', {
+        class: 'poste',
+        text: save.poste === 'tech' ? 'Poste technique' : save.poste === 'equipage' ? 'Poste équipage' : 'Démo'
+      }));
+    }
+    if (st && save.seed) {
+      b.appendChild(H('span', {
+        class: 'jour',
+        html: 'Hiver ' + st.annee + ' · jour ' + Math.min(st.jour, B.JOURS_HIVER) + '/' + B.JOURS_HIVER + '<br>station ' + save.seed
+      }));
+    }
+    document.documentElement.setAttribute('data-poste', save.poste === 'equipage' ? 'equipage' : 'tech');
+  }
+
+  /* ---------- navigation ---------- */
+  function aller(nom) {
+    ecranCourant = nom;
+    ['accueil', 'regles', 'poste', 'hub', 'crise', 'transmission', 'resolution', 'journal', 'fin'].forEach(function (e) {
+      var el = $('ecran-' + e);
+      if (el) el.classList.toggle('actif', e === nom);
+    });
+    barre();
+    window.scrollTo(0, 0);
+  }
+
+  /* ============================================================
+     ACCUEIL
+     ============================================================ */
+  function rendreAccueil() {
+    var box = vide($('ecran-accueil'));
+    var reprise = save.seed && save.decisions !== null;
+    box.appendChild(H('div', { class: 'pile' },
+      H('div', {},
+        H('h1', { class: 'titre-geant', text: 'Borée' }),
+        H('div', { class: 'sous-titre', text: 'Station polaire · hivernage' })
+      ),
+      H('p', { class: 'prose' },
+        'Une station isolée, cinq personnes, un hiver à passer. ',
+        H('strong', { text: 'Vous jouez à deux, sur deux téléphones.' }),
+        ' L\'un tient les machines, l\'autre tient l\'équipage. Aucun des deux ne voit ce que voit l\'autre, et aucune décision ne se prend seul.'
+      ),
+      reprise ? H('button', {
+        class: 'btn-large btn-primaire', onclick: function () {
+          recalculer();
+          if (st.fini) { rendreFin(); aller('fin'); }
+          else if (save.poste) { rendreHub(); aller('hub'); }
+          else { rendrePoste(); aller('poste'); }
+        }
+      }, 'Reprendre — station ' + save.seed) : null,
+      H('button', {
+        class: 'btn-large' + (reprise ? '' : ' btn-primaire'), onclick: function () {
+          if (reprise && !confirm('Créer une nouvelle station remplace la partie en cours. Continuer ?')) return;
+          save = { seed: B.newSeed(), decisions: [], poste: null };
+          enregistrer(); recalculer(); rendrePoste(); aller('poste');
+        }
+      }, 'Créer une station'),
+      H('button', { class: 'btn-large btn-discret', onclick: rendreRejoindre }, 'Rejoindre une station'),
+      H('button', { class: 'btn-large btn-discret', onclick: function () { rendreRegles(); aller('regles'); } }, 'Comment on joue'),
+      H('div', { class: 'note-regle', text: 'Rien n\'est envoyé sur un serveur. Chaque téléphone déroule le même hiver à partir du code de la station et des décisions transmises.' })
+    ));
+  }
+
+  function rendreRejoindre() {
+    var box = vide($('ecran-accueil'));
+    var champ = H('input', { type: 'text', id: 'champ-station', maxlength: '120', placeholder: 'CODE', autocapitalize: 'characters', autocomplete: 'off' });
+    var err = H('div', { class: 'erreur' });
+    box.appendChild(H('div', { class: 'pile' },
+      H('h2', { class: 'titre-bloc', text: 'Rejoindre une station' }),
+      H('p', { class: 'prose', text: 'Saisis le code que ton binôme a sous les yeux. S\'il a déjà joué des semaines sans toi, colle la ligne complète qu\'il voit en bas de son écran.' }),
+      H('div', {}, H('span', { class: 'etiquette', text: 'Code de la station' }), champ),
+      err,
+      H('button', {
+        class: 'btn-large btn-primaire', onclick: function () {
+          var v = String(champ.value || '').toUpperCase().replace(/[^0-9A-Z-]/g, '');
+          var morceaux = v.split('-').filter(function (x) { return x.length; });
+          if (!morceaux.length || morceaux[0].length < 3) { err.textContent = 'Code trop court. Il fait au moins trois caractères.'; return; }
+          save = { seed: morceaux[0], decisions: morceaux.slice(1), poste: null };
+          try { recalculer(); } catch (e) { err.textContent = 'Ce code n\'est pas lisible.'; return; }
+          enregistrer(); rendrePoste(); aller('poste');
+        }
+      }, 'Rejoindre'),
+      H('button', { class: 'btn-large btn-discret', onclick: function () { rendreAccueil(); } }, 'Retour')
+    ));
+  }
+
+  function rendreRegles() {
+    var box = vide($('ecran-regles'));
+    box.appendChild(H('div', { class: 'pile' },
+      H('h2', { class: 'titre-bloc', text: 'Comment on joue' }),
+      H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: '1 · deux postes' }),
+        H('p', { class: 'prose', style: 'margin:0' },
+          'Le ', H('strong', { text: 'poste technique' }), ' voit les machines : puissance, températures, capteurs, durées de réparation. Le ',
+          H('strong', { text: 'poste équipage' }), ' voit les gens : qui est malade, qui sait souder, qui ne supporte plus qui. Jamais les deux sur le même écran.'
+        )
+      ),
+      H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: '2 · vous parlez' }),
+        H('p', { class: 'prose', style: 'margin:0' }, 'Chaque semaine apporte une situation qu\'aucun des deux postes ne peut résoudre seul. Il faut se lire les chiffres à voix haute, poser des questions, et se mettre d\'accord.')
+      ),
+      H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: '3 · un seul valide' }),
+        H('p', { class: 'prose', style: 'margin:0' }, 'Celui qui valide obtient un code de quelques lettres. L\'autre le saisit. Les deux stations restent alors exactement la même station — et chacun découvre les conséquences depuis son poste.')
+      ),
+      H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: '4 · ça reste' }),
+        H('p', { class: 'prose', style: 'margin:0' }, 'Une conduite qui gèle reste gelée. Quelqu\'un qui a pris froid reste fragile des semaines. La station se répare, s\'agrandit, s\'abîme. Cinquante-quatre jours à tenir avant le printemps.')
+      ),
+      H('button', { class: 'btn-large btn-discret', onclick: function () { rendreAccueil(); aller('accueil'); } }, 'Retour')
+    ));
+  }
+
+  /* ============================================================
+     CHOIX DU POSTE
+     ============================================================ */
+  function rendrePoste() {
+    var box = vide($('ecran-poste'));
+    function choisir(p) {
+      save.poste = p; enregistrer(); recalculer();
+      if (st.fini) { rendreFin(); aller('fin'); } else { rendreHub(); aller('hub'); }
+    }
+    box.appendChild(H('div', { class: 'pile' },
+      H('div', {},
+        H('span', { class: 'etiquette', text: 'Station ' + save.seed }),
+        H('h2', { class: 'titre-bloc', text: 'Choisis ton poste' })
+      ),
+      H('p', { class: 'prose', text: 'Un poste chacun. Dis à ton binôme lequel tu prends : deux personnes au même poste ne verront jamais la moitié du problème.' }),
+      H('div', { class: 'choix' },
+        H('button', { onclick: function () { choisir('tech'); } },
+          H('b', { text: 'Poste technique' }),
+          H('i', { text: 'Puissance, températures, capteurs, structure. Des chiffres, des seuils, des causes physiques.' })
+        ),
+        H('button', { onclick: function () { choisir('equipage'); } },
+          H('b', { text: 'Poste équipage' }),
+          H('i', { text: 'Santé, fatigue, compétences, tensions. Ce que les gens disent, et ce qu\'ils ne disent pas.' })
+        ),
+        H('button', { onclick: function () { choisir('demo'); } },
+          H('b', { text: 'Un seul écran (démo)' }),
+          H('i', { text: 'Les deux postes visibles. Pratique pour montrer le jeu — mais il n\'y a plus rien à se dire.' })
+        )
+      ),
+      H('div', { class: 'note-regle', text: 'Le code de la station est ' + save.seed + '. Ton binôme le saisit dans « Rejoindre une station ».' })
+    ));
+  }
+
+  /* ============================================================
+     HUB
+     ============================================================ */
+  function jauge(nom, v, inv) {
+    var cls = v < 35 ? ' bas' : v < 60 ? ' moyen' : '';
+    return H('div', { class: 'jauge' + cls },
+      H('span', { class: 'etiquette', text: nom }),
+      H('div', { class: 'val', text: Math.round(v) }),
+      H('div', { class: 'barre' }, H('i', { style: 'width:' + Math.max(2, Math.round(v)) + '%' }))
+    );
+  }
+
+  function rendreHub() {
+    var box = vide($('ecran-hub'));
+    var pile = H('div', { class: 'pile' });
+    pile.appendChild(schema());
+    pile.appendChild(H('div', { class: 'jauges' },
+      jauge('Intégrité de la station', st.integrite),
+      jauge('Cohésion de l\'équipage', st.cohesion)
+    ));
+
+    if (save.poste !== 'equipage') pile.appendChild(panneauSystemes());
+    if (save.poste !== 'tech') pile.appendChild(panneauEquipage());
+
+    if (cr) {
+      pile.appendChild(H('div', { class: 'caisson accentue pile' },
+        H('span', { class: 'etiquette', text: 'Semaine ' + (st.session + 1) + ' · jour ' + st.jour }),
+        H('div', { class: 'titre-bloc', text: cr.titre }),
+        H('p', { class: 'prose', style: 'margin:0', text: cr.chapeau }),
+        cr.rappel ? H('div', { class: 'avert', text: cr.rappel }) : null,
+        H('button', { class: 'btn-large btn-primaire', onclick: function () { rendreCrise(); aller('crise'); } }, 'Ouvrir le rapport')
+      ));
+    }
+
+    pile.appendChild(H('div', { class: 'rang' },
+      H('button', { class: 'btn-discret', onclick: function () { rendreJournal(); aller('journal'); } }, 'Journal de bord (' + st.journal.length + ')'),
+      H('button', { class: 'btn-discret', onclick: rendreSync }, 'Synchronisation'),
+      H('button', { class: 'btn-discret', onclick: function () { rendreAccueil(); aller('accueil'); } }, 'Menu')
+    ));
+    box.appendChild(pile);
+  }
+
+  function panneauSystemes() {
+    var mods = Object.keys(st.modules).map(function (k) { return st.modules[k]; }).filter(function (m) { return m.built; });
+    var t = H('table', { class: 'releve' });
+    var thead = H('tr', {}, H('th', { text: 'Module' }), H('th', { text: 'Boucle' }), H('th', { text: 'Isol.' }), H('th', { text: 'Lits' }), H('th', { text: 'État' }));
+    t.appendChild(H('thead', {}, thead));
+    var tb = H('tbody', {});
+    mods.forEach(function (m) {
+      tb.appendChild(H('tr', {},
+        H('td', { text: m.nom }),
+        H('td', { text: m.boucle || '—' }),
+        H('td', { text: m.hab ? Math.round(m.ins * 100) + ' %' : '—' }),
+        H('td', { text: m.hab ? String(m.cap) : '—' }),
+        H('td', {}, H('span', { class: m.dmg > 1 ? 'hs' : m.dmg ? 'att' : '', text: m.dmg > 1 ? 'hors service' : m.dmg ? 'à réparer' : 'nominal' }))
+      ));
+    });
+    t.appendChild(tb);
+    return H('div', { class: 'caisson pile' },
+      H('span', { class: 'etiquette', text: 'Relevé des modules' }),
+      H('div', { class: 'defile' }, t),
+      st.chantier ? H('div', { class: 'petit', text: 'Chantier en cours : ' + st.modules[st.chantier].nom + ' — ' + st.chantierFait + '/' + chantierCout(st.chantier) + ' semaines.' }) : null
+    );
+  }
+
+  function panneauEquipage() {
+    var pile = H('div', { class: 'pile' });
+    st.crew.forEach(function (c) {
+      if (c.etat === 'perdu') {
+        pile.appendChild(H('div', { class: 'fiche malade' },
+          H('div', { class: 'nom', text: c.nom }),
+          H('div', { class: 'role', text: 'n\'a pas passé l\'hiver' })
+        ));
+        return;
+      }
+      var cls = c.etat === 'critique' ? ' malade' : (c.etat === 'malade' || c.etat === 'blesse' || c.sante < 55 || c.moral < 40) ? ' attention' : '';
+      var etat = c.etat === 'critique' ? 'état critique — alitée'.replace('alitée', B.genre(c) === 'il' ? 'alité' : 'alitée')
+        : c.etat === 'malade' ? 'malade' + (c.bobo ? ' — ' + c.bobo : '')
+          : c.etat === 'blesse' ? 'blessé' + (c.bobo ? ' — ' + c.bobo : '')
+            : c.sante < 60 ? 'fatigue accumulée' : 'en état';
+      pile.appendChild(H('div', { class: 'fiche' + cls },
+        H('div', { class: 'nom', text: c.nom }),
+        H('div', { class: 'role', text: c.role }),
+        H('div', { class: 'dit', text: etat + '. Moral ' + (c.moral > 70 ? 'bon' : c.moral > 45 ? 'moyen' : c.moral > 25 ? 'bas' : 'au fond') + '.' }),
+        H('div', { class: 'meta', text: 'dort au ' + (st.modules[c.couchage] ? st.modules[c.couchage].nom : '?') + ' · ' + (c.rythme === 'nuit' ? 'service de nuit' : 'service de jour') + ' · ' + c.trait.label })
+      ));
+    });
+    return H('div', { class: 'caisson pile' }, H('span', { class: 'etiquette', text: 'Équipage — ' + B.actifs(st).length + ' en état de travailler' }), pile);
+  }
+
+  /* ============================================================
+     CRISE — panneaux par poste
+     ============================================================ */
+  function nb(v, unite) { return H('span', { text: v + (unite || '') }); }
+
+  var NIVEAUX = ['Purgé', 'Veilleuse', 'Partiel', 'Plein'];
+  var COURTS = { DORTOIR_A: 'Dort. A', DORTOIR_B: 'Dort. B', CARRE: 'Le Carré', LABO: 'Labo', INFIRMERIE: 'Infirm.', SERRE: 'Serre' };
+  function court(m) { return COURTS[m.id] || m.nom; }
+
+  function panThermiqueTech() {
+    var blocs = H('div', {});
+    cr.mods.forEach(function (m) {
+      var g = H('div', { class: 'regimes' });
+      [0, 1, 2, 3].forEach(function (l) {
+        var tp = cr.temps[m.id][l], kw = cr.cout[m.id][l];
+        var cls = l >= 1 && tp <= -2 ? 'danger' : (l >= 1 && tp < 3 ? 'limite' : '');
+        g.appendChild(H('div', { class: cls },
+          H('span', { class: 'lab', text: NIVEAUX[l] }),
+          H('span', { class: 'tp', text: tp + '°' }),
+          H('span', { class: 'kw', text: kw.toFixed(1) + ' kW' })
+        ));
+      });
+      blocs.appendChild(H('div', { class: 'mod-bloc' },
+        H('div', { class: 'mod-tete' },
+          H('b', { text: m.nom }),
+          H('span', { text: m.cap + (m.cap > 1 ? ' lits' : ' lit') + ' · isolation ' + Math.round(m.ins * 100) + ' %' })
+        ),
+        g
+      ));
+    });
+    return H('div', { class: 'caisson pile' },
+      H('span', { class: 'etiquette', text: 'Poste technique · thermique' }),
+      H('div', { class: 'rang' },
+        H('div', { class: 'jauge', style: 'flex:1' }, H('span', { class: 'etiquette', text: 'Extérieur' }), H('div', { class: 'val', text: cr.dehors + '°' })),
+        H('div', { class: 'jauge', style: 'flex:1' }, H('span', { class: 'etiquette', text: 'Puissance dispo.' }), H('div', { class: 'val', text: cr.budget.toFixed(1) + ' kW' }))
+      ),
+      blocs,
+      H('ul', { class: 'puces petit' },
+        H('li', { text: 'Un module laissé en service sous −2 °C : la conduite gèle et cède. Réparation obligatoire ensuite.' }),
+        H('li', { text: 'Un module purgé volontairement ne risque rien — mais il n\'est plus habitable de la nuit.' }),
+        H('li', { text: 'Dépasser la puissance disponible fait décrocher le groupe : tout redescend d\'un cran, sans purge.' })
+      )
+    );
+  }
+
+  function panThermiqueEquipage() {
+    var pile = H('div', { class: 'pile' });
+    cr.eq.forEach(function (c, i) {
+      var b = cr.besoins[i];
+      var cls = b.mini >= 13 ? ' malade' : b.mini >= 7 ? ' attention' : '';
+      var dit = b.pourquoi ? cap(b.pourquoi) + '.' : 'Rien à signaler de particulier.';
+      pile.appendChild(H('div', { class: 'fiche' + cls },
+        H('div', { class: 'nom', text: c.nom }),
+        H('div', { class: 'role', text: c.role }),
+        H('div', { class: 'dit' }, dit + ' ', b.cache ? H('em', { text: 'Dit que ça va. Ne le croyez pas.' }) : null),
+        H('div', {
+          class: 'meta', text: (b.mini <= 0 ? 'supporte à peu près n\'importe quelle température' : 'ne doit pas passer la nuit sous ' + b.mini + ' °C')
+            + (b.seul ? ' · ne dort pas si le module est partagé' : '')
+        })
+      ));
+    });
+    var conflits = cr.conflits.map(function (p) {
+      return H('li', { text: nomDe(p[0]) + ' et ' + nomDe(p[1]) + ' : pas dans le même module cette nuit. Ce n\'est plus discutable.' });
+    });
+    return H('div', { class: 'caisson pile' },
+      H('span', { class: 'etiquette', text: 'Poste équipage · qui supporte quoi' }),
+      pile,
+      conflits.length ? H('div', {}, H('span', { class: 'etiquette', text: 'Tensions' }), H('ul', { class: 'puces petit' }, conflits)) : null,
+      H('div', { class: 'petit', text: 'Tu ne vois pas les températures : demande-les, module par module et régime par régime.' })
+    );
+  }
+
+  function panDiagTech() {
+    var t = H('table', { class: 'releve' });
+    t.appendChild(H('thead', {}, H('tr', {},
+      H('th', { text: 'Module' }), H('th', { text: 'Bcl' }), H('th', { text: 'CO₂ jour' }), H('th', { text: 'CO₂ nuit' }),
+      H('th', { text: 'Humid.' }), H('th', { text: 'CO' }), H('th', { text: 'Filtre' })
+    )));
+    var tb = H('tbody', {});
+    cr.releves.forEach(function (r) {
+      tb.appendChild(H('tr', {},
+        H('td', { text: r.nom }),
+        H('td', { text: r.boucle || '—' }),
+        H('td', { text: r.co2j + '' }),
+        H('td', {}, H('span', { class: r.co2n > 1000 ? 'hs' : r.co2n > 850 ? 'att' : '', text: r.co2n + '' })),
+        H('td', {}, H('span', { class: r.hum >= 70 ? 'hs' : r.hum >= 60 ? 'att' : '', text: r.hum + ' %' })),
+        H('td', {}, H('span', { class: r.co > 0 ? 'hs' : '', text: r.co > 0 ? r.co + '' : '0' })),
+        H('td', {}, H('span', { class: r.filtreAge > r.filtreDuree ? 'att' : '', text: r.filtreAge + '/' + r.filtreDuree + ' j' }))
+      ));
+    });
+    t.appendChild(tb);
+    var boucles = {};
+    cr.releves.forEach(function (r) { (boucles[r.boucle] = boucles[r.boucle] || []).push(r.nom); });
+    return H('div', { class: 'caisson pile' },
+      H('span', { class: 'etiquette', text: 'Poste technique · relevés des dernières 24 h' }),
+      H('div', { class: 'defile' }, t),
+      H('ul', { class: 'puces petit' },
+        H('li', { text: 'Seuil d\'alerte CO₂ la nuit : 1000 ppm. Humidité : 70 %. Le CO devrait être à zéro partout.' }),
+        H('li', { text: 'Ventilation : ' + Object.keys(boucles).map(function (b) { return 'boucle ' + b + ' — ' + boucles[b].join(' + '); }).join(' ; ') + '. Une boucle partagée charge ses modules ensemble.' }),
+        H('li', { text: 'Épurateur de CO₂ (boucle ' + cr.epurateur.boucle + ') : rendement ' + cr.epurateur.rendement + ' %, ' + cr.epurateur.etat + '.' }),
+        H('li', { text: 'Eau : cuve ' + cr.eau.cuve + ' en service depuis ' + cr.eau.depuis + ' jours, turbidité ' + cr.eau.turbidite + ' NTU, chlore résiduel ' + cr.eau.chlore + ' mg/L.' }),
+        H('li', { text: 'Groupe électrogène : ' + cr.groupe.charge + ' % de charge sur le cycle ' + cr.groupe.cycle + '. Le conduit d\'échappement longe le Dortoir B.' })
+      ),
+      H('div', { class: 'petit', text: 'Plusieurs relevés sortent des marges. Un seul explique qui est malade — et ça, tu ne l\'as pas.' })
+    );
+  }
+
+  function panDiagEquipage() {
+    var pile = H('div', { class: 'pile' });
+    cr.symptomes.forEach(function (sy) {
+      pile.appendChild(H('div', { class: 'fiche malade' },
+        H('div', { class: 'nom', text: sy.nom }),
+        H('div', { class: 'dit', text: cap(sy.sympt.join(', ')) + '.' }),
+        H('div', { class: 'meta', text: 'dort au ' + (st.modules[sy.couchage] ? st.modules[sy.couchage].nom : '?') + ' · service de ' + sy.rythme + ' · boit du ' + sy.boisson })
+      ));
+    });
+    if (cr.exempt) {
+      pile.appendChild(H('div', { class: 'fiche' },
+        H('div', { class: 'nom', text: cr.exempt.nom }),
+        H('div', { class: 'dit' }, 'Aucun symptôme. ', H('em', { text: cap(cr.exempt.raison) + '.' })),
+        H('div', { class: 'meta', text: 'dort au ' + (st.modules[cr.exempt.couchage] ? st.modules[cr.exempt.couchage].nom : '?') })
+      ));
+    }
+    if (cr.leurre) {
+      pile.appendChild(H('div', { class: 'fiche attention' },
+        H('div', { class: 'nom', text: cr.leurre.nom }),
+        H('div', { class: 'dit', text: cap(cr.leurre.sympt) + '.' }),
+        H('div', { class: 'meta', text: 'dort au ' + (st.modules[cr.leurre.couchage] ? st.modules[cr.leurre.couchage].nom : '?') })
+      ));
+    }
+    var reg = H('table', { class: 'releve' });
+    reg.appendChild(H('thead', {}, H('tr', {}, H('th', { text: 'Qui' }), H('th', { text: 'Dort au' }), H('th', { text: 'Service' }), H('th', { text: 'Boit' }))));
+    var tb2 = H('tbody', {});
+    cr.equipage.forEach(function (e) {
+      tb2.appendChild(H('tr', {}, H('td', { text: e.nom }), H('td', { text: e.couchage }), H('td', { text: e.rythme }), H('td', { text: e.boisson })));
+    });
+    reg.appendChild(tb2);
+    return H('div', { class: 'caisson pile' },
+      H('span', { class: 'etiquette', text: 'Poste équipage · ce que Nadia a relevé' }),
+      pile,
+      H('div', {}, H('span', { class: 'etiquette', text: 'Registre : qui dort où, et quand' }), H('div', { class: 'defile' }, reg)),
+      H('div', { class: 'petit', text: 'Tu n\'as aucun capteur. Dis qui va mal, où et quand : c\'est ce qui rend les chiffres lisibles en face.' })
+    );
+  }
+
+  function panTempeteTech() {
+    var pile = H('div', { class: 'pile' });
+    cr.taches.forEach(function (t, i) {
+      pile.appendChild(H('div', { class: 'caisson' },
+        H('div', { class: 'quoi', style: 'display:flex;justify-content:space-between;gap:10px;align-items:baseline' },
+          H('b', { text: (i + 1) + '. ' + t.nom }),
+          H('span', { style: 'font-family:var(--mono);font-size:11px;color:var(--sourd);white-space:nowrap', text: t.h + ' h' })
+        ),
+        H('div', { class: 'meta', style: 'font-family:var(--mono);font-size:10.5px;color:var(--tech);letter-spacing:.04em', text: B.SKILL_LABEL[t.sk] + ' niveau ' + t.niv + (t.ext ? ' · à l\'extérieur' : ' · à l\'intérieur') }),
+        H('div', { class: 'petit', style: 'margin-top:6px', text: 'Si on ne le fait pas : ' + t.csq })
+      ));
+    });
+    return H('div', { class: 'caisson pile' },
+      H('span', { class: 'etiquette', text: 'Poste technique · travaux avant le front' }),
+      H('div', { class: 'rang' },
+        H('div', { class: 'jauge', style: 'flex:1' }, H('span', { class: 'etiquette', text: 'Fenêtre' }), H('div', { class: 'val', text: cr.fenetre + ' h' })),
+        H('div', { class: 'jauge', style: 'flex:1' }, H('span', { class: 'etiquette', text: 'Vent annoncé' }), H('div', { class: 'val', text: cr.vent }))
+      ),
+      pile,
+      H('div', { class: 'petit', text: 'Total à faire : ' + cr.taches.reduce(function (a, t) { return a + t.h; }, 0) + ' heures pour une fenêtre de ' + cr.fenetre + ' h par personne. Il faudra sacrifier quelque chose.' })
+    );
+  }
+
+  function panTempeteEquipage() {
+    var pile = H('div', { class: 'pile' });
+    cr.fiches.forEach(function (f) {
+      var cls = /blessé|malade/.test(f.etat) ? ' malade' : /épuisé|moral/.test(f.etat) ? ' attention' : '';
+      pile.appendChild(H('div', { class: 'fiche' + cls },
+        H('div', { class: 'nom', text: f.nom }),
+        H('div', { class: 'role', text: f.role }),
+        H('div', { class: 'dit', text: cap(f.etat) + '.' }),
+        H('div', { class: 'meta', text: f.certs.join(' · ') }),
+        H('div', { class: 'dit', style: 'font-size:13px' }, H('em', { text: cap(f.note) }))
+      ));
+    });
+    return H('div', { class: 'caisson pile' },
+      H('span', { class: 'etiquette', text: 'Poste équipage · qui peut réellement y aller' }),
+      pile,
+      H('div', { class: 'petit', text: 'Tu ne sais pas ce que chaque tâche exige ni combien d\'heures elle prend. Fais-toi lire la liste.' })
+    );
+  }
+
+  function cap(s) { return String(s).charAt(0).toUpperCase() + String(s).slice(1); }
+  function nomDe(id) { var c = st.crew.filter(function (x) { return x.id === id; })[0]; return c ? c.prenom : '?'; }
+
+  /* ---------- contrôles de décision ---------- */
+  function segments(valeurs, courant, onset) {
+    // au-delà de quatre choix, deux rangées de trois valent mieux qu'une
+    // rangée d'étiquettes illisibles
+    var cols = valeurs.length <= 4 ? valeurs.length : 3;
+    var wrap = H('div', { class: 'segments', style: 'grid-template-columns:repeat(' + cols + ',1fr)' });
+    valeurs.forEach(function (v, i) {
+      var b = H('button', { type: 'button', 'aria-pressed': String(i === courant), onclick: function () { onset(i); } }, v);
+      wrap.appendChild(b);
+    });
+    return wrap;
+  }
+
+  function decisionUI() {
+    var wrap = H('div', { class: 'caisson pile' });
+    wrap.appendChild(H('span', { class: 'etiquette', text: 'Décision commune' }));
+    var corps = H('div', {});
+    wrap.appendChild(corps);
+
+    function redessine() {
+      vide(corps);
+      if (cr.type === 'thermique') {
+        var nbm = cr.mods.length;
+        corps.appendChild(H('div', { class: 'etiquette', text: 'Régime de chauffage' }));
+        cr.mods.forEach(function (m, i) {
+          corps.appendChild(H('div', { class: 'ligne-dec' },
+            H('div', { class: 'quoi' }, H('b', { text: m.nom }),
+              save.poste !== 'equipage' ? H('span', { text: cr.temps[m.id][dec[i]] + '° · ' + cr.cout[m.id][dec[i]].toFixed(1) + ' kW' }) : null),
+            segments(['Purgé', 'Veilleuse', 'Partiel', 'Plein'], dec[i], function (v) { dec[i] = v; redessine(); })
+          ));
+        });
+        if (save.poste !== 'equipage') {
+          var conso = 0;
+          cr.mods.forEach(function (m, i) { conso += cr.cout[m.id][dec[i]]; });
+          var sur = conso > cr.budget + 1e-9;
+          corps.appendChild(H('div', {
+            class: 'petit', style: 'margin-top:10px;color:' + (sur ? 'var(--grave)' : 'var(--sourd)'),
+            text: 'Charge demandée : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' +
+              (sur ? 'le groupe va décrocher et tout redescendra d\'un cran.' : 'dans les marges.')
+          }));
+        }
+        corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:16px', text: 'Où dort chacun' }));
+        cr.eq.forEach(function (c, j) {
+          var idx = nbm + j;
+          corps.appendChild(H('div', { class: 'ligne-dec' },
+            H('div', { class: 'quoi' }, H('b', { text: c.prenom }),
+              save.poste !== 'tech' ? H('span', { text: cr.besoins[j].mini <= 0 ? 'insensible au froid' : 'min. ' + cr.besoins[j].mini + '°' }) : null),
+            segments(cr.mods.map(court), dec[idx] % nbm, function (v) { dec[idx] = v; redessine(); })
+          ));
+        });
+        if (save.poste !== 'equipage') {
+          var occ = cr.mods.map(function () { return 0; });
+          cr.eq.forEach(function (c, j) { occ[dec[nbm + j] % nbm]++; });
+          var pleins = cr.mods.filter(function (m, i) { return occ[i] > m.cap; }).map(function (m) { return m.nom; });
+          corps.appendChild(H('div', {
+            class: 'petit', style: 'margin-top:10px;color:' + (pleins.length ? 'var(--grave)' : 'var(--sourd)'),
+            text: pleins.length ? 'Plus de monde que de lits : ' + pleins.join(', ') + '.' : 'Chacun a un lit.'
+          }));
+        }
+      } else if (cr.type === 'diagnostic') {
+        corps.appendChild(H('div', { class: 'etiquette', text: 'Cause retenue' }));
+        var l1 = H('div', { class: 'choix' });
+        B.CAUSES.forEach(function (c, i) {
+          l1.appendChild(H('button', { type: 'button', 'aria-pressed': String(dec[0] === i), onclick: function () { dec[0] = i; redessine(); } }, H('b', { text: c.nom })));
+        });
+        corps.appendChild(l1);
+        corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:16px', text: 'Intervention' }));
+        var l2 = H('div', { class: 'choix' });
+        B.FIXES.forEach(function (f, i) {
+          l2.appendChild(H('button', { type: 'button', 'aria-pressed': String(dec[1] === i), onclick: function () { dec[1] = i; redessine(); } },
+            H('b', { text: f.nom }),
+            i === 5 ? H('i', { text: 'Soulage sans régler. La cause reviendra, et en attendant elle continue d\'agir.' }) : null
+          ));
+        });
+        corps.appendChild(l2);
+      } else {
+        corps.appendChild(H('div', { class: 'etiquette', text: 'Affectation des travaux' }));
+        var noms = cr.eq.map(function (c) { return c.prenom; }).concat(['Non faite']);
+        cr.taches.forEach(function (t, i) {
+          corps.appendChild(H('div', { class: 'ligne-dec' },
+            H('div', { class: 'quoi' }, H('b', { text: (i + 1) + '. ' + t.nom }),
+              save.poste !== 'equipage' ? H('span', { text: B.SKILL_LABEL[t.sk] + ' n' + t.niv + ' · ' + t.h + ' h' }) : null),
+            segments(noms, Math.min(dec[i], noms.length - 1), function (v) { dec[i] = v; redessine(); })
+          ));
+        });
+        if (save.poste !== 'equipage') {
+          var heures = {};
+          cr.taches.forEach(function (t, i) { if (dec[i] < cr.eq.length) heures[dec[i]] = (heures[dec[i]] || 0) + t.h; });
+          var dep = Object.keys(heures).filter(function (k) { return heures[k] > cr.fenetre; })
+            .map(function (k) { return cr.eq[k].prenom + ' ' + heures[k] + ' h'; });
+          corps.appendChild(H('div', {
+            class: 'petit', style: 'margin-top:10px;color:' + (dep.length ? 'var(--grave)' : 'var(--sourd)'),
+            text: dep.length ? 'Fenêtre de ' + cr.fenetre + ' h dépassée : ' + dep.join(', ') + '.' : 'Personne ne dépasse la fenêtre de ' + cr.fenetre + ' h.'
+          }));
+        }
+      }
+
+      // affectation de la semaine (dernière valeur du code)
+      var iSem = dec.length - 1;
+      corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:18px', text: 'Et la semaine qui vient' }));
+      var l3 = H('div', { class: 'choix' });
+      (cr.chantiers || []).forEach(function (o, i) {
+        l3.appendChild(H('button', { type: 'button', 'aria-pressed': String(dec[iSem] === i), onclick: function () { dec[iSem] = i; redessine(); } },
+          H('b', { text: o.nom }), H('i', { text: o.desc })));
+      });
+      corps.appendChild(l3);
+    }
+    redessine();
+    wrap.appendChild(H('button', { class: 'btn-large btn-primaire', style: 'margin-top:6px', onclick: function () { rendreTransmission(); aller('transmission'); } }, 'Valider et transmettre'));
+    wrap.appendChild(H('div', { class: 'note-regle', text: 'Un seul des deux valide. L\'autre saisit le code — sinon vos deux stations partent dans deux histoires différentes.' }));
+    return wrap;
+  }
+
+  function rendreCrise() {
+    var box = vide($('ecran-crise'));
+    var pile = H('div', { class: 'pile' });
+    pile.appendChild(H('div', {},
+      H('span', { class: 'etiquette', text: 'Semaine ' + (st.session + 1) + ' · jour ' + st.jour + ' · hiver ' + st.annee }),
+      H('h2', { class: 'titre-bloc', text: cr.titre }),
+      H('p', { class: 'prose', text: cr.chapeau }),
+      cr.rappel ? H('div', { class: 'avert', text: cr.rappel }) : null
+    ));
+    if (save.poste !== 'equipage') {
+      pile.appendChild(cr.type === 'thermique' ? panThermiqueTech() : cr.type === 'diagnostic' ? panDiagTech() : panTempeteTech());
+    }
+    if (save.poste !== 'tech') {
+      pile.appendChild(cr.type === 'thermique' ? panThermiqueEquipage() : cr.type === 'diagnostic' ? panDiagEquipage() : panTempeteEquipage());
+    }
+    pile.appendChild(decisionUI());
+    pile.appendChild(H('div', { class: 'rang' },
+      H('button', { class: 'btn-discret', onclick: function () { rendreReception(); aller('transmission'); } }, 'Saisir un code reçu'),
+      H('button', { class: 'btn-discret', onclick: function () { rendreHub(); aller('hub'); } }, 'Retour')
+    ));
+    box.appendChild(pile);
+  }
+
+  /* ============================================================
+     TRANSMISSION
+     ============================================================ */
+  function rendreTransmission() {
+    var box = vide($('ecran-transmission'));
+    var code = B.emitCode(st, cr, dec);
+    box.appendChild(H('div', { class: 'pile' },
+      H('div', {},
+        H('span', { class: 'etiquette', text: 'Transmission' }),
+        H('h2', { class: 'titre-bloc', text: 'Code de la décision' })
+      ),
+      H('p', { class: 'prose', text: 'Lis ce code à ton binôme, ou montre-lui l\'écran. Il le saisit de son côté, puis vous appliquez tous les deux.' }),
+      H('div', { class: 'code-affiche', text: code }),
+      H('button', {
+        class: 'btn-large btn-primaire', onclick: function () {
+          appliquer(B.packCode(dec, cr.widths));
+        }
+      }, 'Appliquer'),
+      H('button', { class: 'btn-large btn-discret', onclick: function () { rendreCrise(); aller('crise'); } }, 'Revenir à la décision')
+    ));
+  }
+
+  function rendreReception() {
+    var box = vide($('ecran-transmission'));
+    var champ = H('input', { type: 'text', id: 'champ-code', maxlength: '12', placeholder: 'CODE', autocapitalize: 'characters', autocomplete: 'off' });
+    var err = H('div', { class: 'erreur' });
+    box.appendChild(H('div', { class: 'pile' },
+      H('div', {},
+        H('span', { class: 'etiquette', text: 'Réception' }),
+        H('h2', { class: 'titre-bloc', text: 'Code reçu' })
+      ),
+      H('p', { class: 'prose', text: 'Saisis le code que ton binôme vient de valider. Il porte une somme de contrôle : un caractère faux est refusé plutôt que de faire dériver la station.' }),
+      champ, err,
+      H('button', {
+        class: 'btn-large btn-primaire', onclick: function () {
+          var r = B.readCode(st, cr, champ.value);
+          if (!r) { err.textContent = 'Code refusé. Vérifie les caractères, un par un.'; return; }
+          dec = r.dec;
+          appliquer(r.payload);
+        }
+      }, 'Appliquer'),
+      H('button', { class: 'btn-large btn-discret', onclick: function () { rendreCrise(); aller('crise'); } }, 'Retour')
+    ));
+  }
+
+  function appliquer(payload) {
+    var crSauve = cr;
+    var decSauve = dec.slice();
+    save.decisions.push(payload);
+    enregistrer();
+    var avant = { integrite: st.integrite, cohesion: st.cohesion };
+    var stAvant = st;
+    var resultat = B.resolve(stAvant, crSauve, decSauve);
+    st = stAvant;
+    recalculerApres(resultat, crSauve, avant);
+  }
+
+  function recalculerApres(resultat, crSauve, avant) {
+    rendreResolution(resultat, crSauve, avant);
+    aller('resolution');
+    cr = B.crisisFor(st);
+    dec = cr ? cr.defaut.slice() : null;
+  }
+
+  /* ============================================================
+     RÉSOLUTION
+     ============================================================ */
+  function rendreResolution(r, crSauve, avant) {
+    var box = vide($('ecran-resolution'));
+    var pile = H('div', { class: 'pile' });
+    pile.appendChild(H('div', {},
+      H('span', { class: 'etiquette', text: 'Jour ' + (st.jour - 6) + ' · ' + crSauve.titre }),
+      H('h2', { class: 'titre-bloc', text: 'Ce qui s\'est passé' })
+    ));
+
+    if (r.shared.length) {
+      var recit = H('div', { class: 'recit' });
+      r.shared.forEach(function (t) { recit.appendChild(H('p', { text: t })); });
+      pile.appendChild(recit);
+    }
+
+    if (save.poste !== 'equipage' && r.tech.length) {
+      var rt = H('div', { class: 'rapport' });
+      r.tech.forEach(function (it) { rt.appendChild(H('div', { class: 'item ' + it.t, text: it.txt })); });
+      pile.appendChild(H('div', { class: 'caisson pile' }, H('span', { class: 'etiquette', text: 'Relevé technique' }), rt));
+    }
+    if (save.poste !== 'tech' && r.crew.length) {
+      var rc = H('div', { class: 'rapport' });
+      r.crew.forEach(function (it) { rc.appendChild(H('div', { class: 'item ' + it.t, text: it.txt })); });
+      pile.appendChild(H('div', { class: 'caisson pile' }, H('span', { class: 'etiquette', text: 'Équipage' }), rc));
+    }
+    if (r.semaine && r.semaine.length) {
+      pile.appendChild(H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: 'La semaine' }),
+        H('div', { class: 'rapport' }, r.semaine.map(function (t) { return H('div', { class: 'item', text: t }); }))
+      ));
+    }
+
+    pile.appendChild(H('div', { class: 'jauges' },
+      jauge('Intégrité', st.integrite),
+      jauge('Cohésion', st.cohesion)
+    ));
+    pile.appendChild(H('div', { class: 'caisson' },
+      H('span', { class: 'etiquette', text: 'Code d\'état — doit être identique sur les deux téléphones' }),
+      H('div', { class: 'etat-code', text: B.stateCode(save) })
+    ));
+    pile.appendChild(H('button', {
+      class: 'btn-large btn-primaire', onclick: function () {
+        if (st.fini) { rendreFin(); aller('fin'); } else { rendreHub(); aller('hub'); }
+      }
+    }, st.fini ? 'Fin de l\'hiver' : 'Continuer'));
+    box.appendChild(pile);
+  }
+
+  /* ============================================================
+     JOURNAL
+     ============================================================ */
+  function rendreJournal() {
+    var box = vide($('ecran-journal'));
+    var pile = H('div', { class: 'pile' });
+    pile.appendChild(H('div', {},
+      H('span', { class: 'etiquette', text: 'Station ' + save.seed }),
+      H('h2', { class: 'titre-bloc', text: 'Journal de bord' }),
+      H('p', { class: 'prose', text: 'Écrit tout seul, semaine après semaine. C\'est la trace de ce que vous avez décidé — pas de ce que vous auriez voulu décider.' })
+    ));
+    if (!st.journal.length) {
+      pile.appendChild(H('div', { class: 'note-regle', text: 'Rien encore. La première semaine n\'est pas passée.' }));
+    }
+    var liste = H('div', {});
+    st.journal.slice().reverse().forEach(function (e) {
+      liste.appendChild(H('div', { class: 'entree' },
+        H('div', { class: 'quand', text: 'Hiver ' + e.annee + ' · jour ' + e.jour }),
+        H('h3', { text: e.titre }),
+        H('p', { text: e.txt + (e.semaine ? ' ' + e.semaine : '') }),
+        H('div', { class: 'meta petit', style: 'font-family:var(--mono);font-size:10px;margin-top:5px;color:var(--sourd)', text: 'intégrité ' + e.integrite + ' · cohésion ' + e.cohesion })
+      ));
+    });
+    pile.appendChild(liste);
+    pile.appendChild(H('button', { class: 'btn-large btn-discret', onclick: function () { rendreHub(); aller('hub'); } }, 'Retour'));
+    box.appendChild(pile);
+  }
+
+  /* ============================================================
+     SYNCHRONISATION
+     ============================================================ */
+  function rendreSync() {
+    var box = vide($('ecran-journal'));
+    var champ = H('input', { type: 'text', id: 'champ-sync', placeholder: 'CODE COMPLET', autocapitalize: 'characters', autocomplete: 'off', style: 'font-size:13px;letter-spacing:.1em' });
+    var err = H('div', { class: 'erreur' });
+    box.appendChild(H('div', { class: 'pile' },
+      H('div', {},
+        H('span', { class: 'etiquette', text: 'Synchronisation' }),
+        H('h2', { class: 'titre-bloc', text: 'Les deux stations sont-elles la même ?' })
+      ),
+      H('p', { class: 'prose' }, 'Comparez ce code d\'état. S\'il diffère, une décision n\'a pas été appliquée des deux côtés.'),
+      H('div', { class: 'caisson' },
+        H('span', { class: 'etiquette', text: 'Code d\'état' }),
+        H('div', { class: 'etat-code', text: B.stateCode(save) })
+      ),
+      H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: 'Histoire complète de la station' }),
+        H('div', { class: 'petit', style: 'font-family:var(--mono);word-break:break-all;color:var(--givre)', text: chaineReprise() }),
+        H('div', { class: 'petit', text: 'Toute la partie tient dans cette ligne. Celui qui est en retard la recopie ci-dessous.' })
+      ),
+      H('div', {}, H('span', { class: 'etiquette', text: 'Adopter une histoire reçue' }), champ),
+      err,
+      H('button', {
+        class: 'btn-large', onclick: function () {
+          var v = String(champ.value || '').toUpperCase().replace(/[^0-9A-Z-]/g, '');
+          var m = v.split('-').filter(function (x) { return x.length; });
+          if (!m.length) { err.textContent = 'Ligne vide.'; return; }
+          var ancien = save;
+          save = { seed: m[0], decisions: m.slice(1), poste: ancien.poste };
+          try { recalculer(); } catch (e) { save = ancien; recalculer(); err.textContent = 'Ligne illisible.'; return; }
+          enregistrer();
+          if (st.fini) { rendreFin(); aller('fin'); } else { rendreHub(); aller('hub'); }
+        }
+      }, 'Adopter'),
+      H('button', { class: 'btn-large btn-discret', onclick: function () { rendreHub(); aller('hub'); } }, 'Retour')
+    ));
+    aller('journal');
+  }
+
+  /* ============================================================
+     FIN D'HIVER
+     ============================================================ */
+  function rendreFin() {
+    var box = vide($('ecran-fin'));
+    var pile = H('div', { class: 'pile' });
+    var perdus = st.crew.filter(function (c) { return c.etat === 'perdu'; });
+    var titre = st.issue === 'printemps' ? 'Le printemps' : st.issue === 'station' ? 'La station a lâché' : 'Plus personne pour tenir';
+    var texte = st.issue === 'printemps'
+      ? 'Le soleil est repassé au-dessus de l\'horizon le ' + B.JOURS_HIVER + 'ᵉ jour. La station tient encore debout, et vous savez exactement à quel prix.'
+      : st.issue === 'station'
+        ? 'Trop de systèmes rendus, trop de réparations remises. Il a fallu abandonner Borée en plein hiver.'
+        : 'Il ne reste plus assez de monde en état de faire tourner la station. L\'hivernage s\'arrête là.';
+
+    pile.appendChild(H('div', {},
+      H('span', { class: 'etiquette', text: 'Hiver ' + st.annee + ' · station ' + save.seed }),
+      H('h1', { class: 'titre-geant', style: 'font-size:clamp(40px,14vw,72px)', text: titre }),
+      H('p', { class: 'prose', text: texte })
+    ));
+    pile.appendChild(schema());
+    pile.appendChild(H('div', { class: 'jauges' }, jauge('Intégrité', st.integrite), jauge('Cohésion', st.cohesion)));
+    if (perdus.length) {
+      pile.appendChild(H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: 'Ne sont pas rentrés' }),
+        H('div', {}, perdus.map(function (c) { return H('div', { class: 'prose', text: c.nom + ' — ' + c.role }); }))
+      ));
+    }
+    var construits = Object.keys(st.modules).filter(function (k) { return st.modules[k].built && !['DORTOIR_A', 'DORTOIR_B', 'CARRE', 'LABO', 'MACHINES', 'RESERVE', 'SAS'].includes(k); });
+    if (construits.length) {
+      pile.appendChild(H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: 'Construit pendant l\'hiver' }),
+        H('div', {}, construits.map(function (k) { return H('div', { class: 'prose', text: st.modules[k].nom }); }))
+      ));
+    }
+    pile.appendChild(H('button', { class: 'btn-large btn-discret', onclick: function () { rendreJournal(); aller('journal'); } }, 'Relire le journal'));
+    if (st.issue === 'printemps') {
+      pile.appendChild(H('div', { class: 'note-regle', text: 'Un second hivernage repart avec les survivants, une station déjà marquée, et un froid plus dur. Les deux téléphones doivent le lancer, sinon les histoires divergent.' }));
+      pile.appendChild(H('button', {
+        class: 'btn-large btn-primaire', onclick: function () {
+          save.decisions.push('*');
+          enregistrer(); recalculer();
+          rendreHub(); aller('hub');
+        }
+      }, 'Hiver ' + (st.annee + 1)));
+    }
+    pile.appendChild(H('button', {
+      class: 'btn-large btn-discret', onclick: function () {
+        if (!confirm('Abandonner cette station et revenir au menu ?')) return;
+        rendreAccueil(); aller('accueil');
+      }
+    }, 'Menu'));
+    box.appendChild(pile);
+  }
+
+  /* ---------- démarrage ---------- */
+  function demarrer() {
+    neige();
+    if (charger() && save.seed) { try { recalculer(); } catch (e) { save = { seed: null, decisions: [], poste: null }; } }
+    rendreAccueil();
+    aller('accueil');
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer);
+  else demarrer();
+})();
+</script>
+</body>
+</html>
