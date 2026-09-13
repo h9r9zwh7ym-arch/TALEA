@@ -2383,89 +2383,11 @@ input::placeholder{color:#5d6e80;}
   function p2pSetStatus() {
     rafraichirBarre();
     try {
-      if (ecranCourant === 'hub') rendreHub();
-      else if (ecranCourant === 'crise') actualiserCriseTempsReel();
-      else if (ecranCourant === 'transmission') rendreTransmissionAttente();
-    } catch (e) { /* rendu non critique */ }
+      var el = document.querySelector('[data-p2p-status]');
+      if (el) el.textContent = p2pStatusText() || '';
+    } catch (e) {}
   }
 
-  var uiSyncTimer = null;
-  var uiSyncDirty = false;
-
-  function actualiserCriseTempsReel() {
-    if (ecranCourant !== 'crise' || !cr) return;
-    try {
-      var meta = roundStateMeta();
-      var turn = document.querySelector('#ecran-crise .boree-turnline');
-      if (turn) {
-        turn.className = 'boree-turnline ' + meta.cls;
-        var strong = turn.querySelector('strong');
-        var span = turn.querySelector('span');
-        if (strong) strong.textContent = meta.label;
-        if (span) span.textContent = meta.text;
-      }
-      var submit = document.querySelector('#ecran-crise .boree-decision-submit');
-      if (submit) {
-        submit.disabled = !!round.localSubmitted;
-        submit.textContent = round.localSubmitted ? 'Décision verrouillée' : (net.connected && save.p2pRole !== 'demo' ? 'Valider ma décision' : 'Valider et transmettre');
-      }
-      planifierSynchronisationChoixDistant();
-    } catch (e) { /* rendu léger non critique */ }
-  }
-
-  function planifierSynchronisationChoixDistant() {
-    uiSyncDirty = true;
-    if (uiSyncTimer != null) return;
-    uiSyncTimer = window.setTimeout(function(){
-      uiSyncTimer = null;
-      if (!uiSyncDirty) return;
-      uiSyncDirty = false;
-      synchroniserChoixDistantUI();
-    }, 120);
-  }
-
-  function synchroniserChoixDistantUI() {
-    if (ecranCourant !== 'crise' || !cr || !round.remoteDec) return;
-    var idxs = indicesDuRole(cr, round.remotePoste || posteOppose(save.poste));
-    for (var j = 0; j < idxs.length; j++) {
-      var idx = idxs[j];
-      var selector = '#ecran-crise [data-round-index=\"' + idx + '\"][data-round-value]';
-      var nodes = document.querySelectorAll(selector);
-      for (var i = 0; i < nodes.length; i++) {
-        var v = parseInt(nodes[i].getAttribute('data-round-value'), 10);
-        if (Number.isFinite(v)) nodes[i].setAttribute('aria-pressed', String(round.remoteDec[idx] === v));
-      }
-    }
-  }
-
-  function actualiserSelectionLocaleUI(idx) {
-    if (ecranCourant !== 'crise' || !cr) return;
-    var selector = '#ecran-crise [data-round-index=\"' + idx + '\"][data-round-value]';
-    var nodes = document.querySelectorAll(selector);
-    var current = round.localDec ? round.localDec[idx] : null;
-    for (var i = 0; i < nodes.length; i++) {
-      var v = parseInt(nodes[i].getAttribute('data-round-value'), 10);
-      if (Number.isFinite(v)) nodes[i].setAttribute('aria-pressed', String(current === v));
-    }
-    if (cr.type === 'thermique' && idx < cr.mods.length && save.poste === 'tech') {
-      var ligne = nodes.length ? nodes[0].closest('.ligne-dec') : null;
-      if (ligne) {
-        var span = ligne.querySelector('.quoi span');
-        if (span) {
-          var m = cr.mods[idx], vv = current == null ? 0 : current;
-          span.textContent = cr.temps[m.id][vv] + '° · ' + cr.cout[m.id][vv].toFixed(1) + ' kW';
-        }
-      }
-      var total = 0;
-      cr.mods.forEach(function(m, i){ total += cr.cout[m.id][round.localDec[i]]; });
-      var live = document.querySelector('#ecran-crise [data-live-charge]');
-      if (live) {
-        var sur = total > cr.budget + 1e-9;
-        live.textContent = 'Charge demandée : ' + total.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (sur ? 'le groupe va décrocher.' : 'dans les marges.');
-        live.style.color = sur ? 'var(--grave)' : 'var(--sourd)';
-      }
-    }
-  }
 
   function p2pSend(msg) {
     if (!net.conn || !net.conn.open) return false;
@@ -2752,27 +2674,11 @@ input::placeholder{color:#5d6e80;}
       net.retryTimer = null;
       p2pSetStatus();
       if (net.role === 'host') {
-        // Le snapshot d'initialisation est renvoyé quelques secondes :
-        // cela couvre les courses de démarrage et un premier paquet perdu.
         net.snapshotAck = false;
         p2pSendSnapshot();
-        try { if (net.snapshotTimer) clearInterval(net.snapshotTimer); } catch (e) {}
-        net.snapshotTimer = setInterval(function () {
-          if (!net.connected || net.snapshotAck) {
-            try { clearInterval(net.snapshotTimer); } catch (e) {}
-            net.snapshotTimer = null;
-            return;
-          }
-          p2pSendSnapshot();
-        }, 700);
-        setTimeout(function () {
-          try { if (net.snapshotTimer) clearInterval(net.snapshotTimer); } catch (e) {}
-          net.snapshotTimer = null;
-        }, 8000);
       } else {
         p2pSend({ type: 'hello', seed: save.seed || null, poste: save.poste || null, protocol: 4 });
         setTimeout(function(){
-          try { if (cr && save.poste) { initialiserRound(false); p2pSend({ type:'draft', key:round.key, poste:save.poste, values:roundSubmitValues() }); } } catch (e) {}
           if (p2pResendPending()) p2pStartSubmitRetry();
         }, 120);
       }
@@ -2871,12 +2777,6 @@ input::placeholder{color:#5d6e80;}
     enregistrer();
     if (!save.p2pRole || !net.connected) return;
     p2pSend({ type: 'role', poste: p });
-    try {
-      if (cr) {
-        initialiserRound(false);
-        p2pSend({ type:'draft', key:round.key, poste:save.poste, values:roundSubmitValues() });
-      }
-    } catch (e) {}
   }
 
   function p2pHandleSnapshot(msg) {
@@ -2913,9 +2813,27 @@ input::placeholder{color:#5d6e80;}
 
     initialiserRound(true);
     if (msg.round && msg.round.key === round.key) {
+      /* Sur le téléphone invité, un ancien pendingLocal ne doit jamais rendre
+         les commandes inutilisables si l'hôte n'a pas confirmé cette manche.
+         L'hôte fait foi pour savoir si le guest était réellement verrouillé. */
+      round.localSubmitted = !!msg.round.guestReady;
+      if (round.localSubmitted) {
+        save.pendingLocal = save.pendingLocal && save.pendingLocal.key === round.key ? save.pendingLocal : null;
+      } else {
+        save.pendingLocal = null;
+        enregistrer();
+      }
       round.remoteSubmitted = !!msg.round.hostReady;
       var remoteRole = msg.round.hostPoste && msg.round.hostPoste !== save.poste ? msg.round.hostPoste : (msg.hostPoste && msg.hostPoste !== save.poste ? msg.hostPoste : null);
       if (remoteRole && Array.isArray(msg.round.hostValues)) appliquerBrouillonDistant(msg.round.hostValues, remoteRole, round.key);
+    } else if (save.p2pRole === 'guest') {
+      round.localSubmitted = false;
+      save.pendingLocal = null;
+      enregistrer();
+    }
+    if (save.p2pRole === 'guest' && net.connected && !round.localSubmitted && save.pendingLocal && save.pendingLocal.submitted) {
+      save.pendingLocal = null;
+      enregistrer();
     }
     if (!save.poste) {
       rendrePoste(); aller('poste');
@@ -2982,15 +2900,8 @@ input::placeholder{color:#5d6e80;}
       return;
     }
 
-    if (msg.type === 'draft') {
-      if (!st || !cr || st.fini) return;
-      initialiserRound(false);
-      var inferredRole = msg.poste && msg.poste !== save.poste ? msg.poste : (net.remotePoste || posteOppose(save.poste));
-      if (net.role === 'host' && inferredRole && inferredRole !== save.poste) net.remotePoste = inferredRole;
-      if (!msg.poste || !inferredRole || msg.poste === save.poste || msg.poste !== inferredRole || !appliquerBrouillonDistant(msg.values, inferredRole, msg.key)) return;
-      planifierSynchronisationChoixDistant();
-      return;
-    }
+    // Les brouillons ne sont volontairement pas synchronisés en temps réel.
+    // La synchronisation intervient uniquement après validation.
 
     if (msg.type === 'submit' && net.role === 'host') {
       if (!st || !cr || st.fini) return;
@@ -3004,21 +2915,18 @@ input::placeholder{color:#5d6e80;}
       p2pSend({ type: 'submit_ack', key: round.key, hostReady: !!round.localSubmitted, guestReady: true });
       p2pSend({ type: 'round_status', key: round.key, hostReady: !!round.localSubmitted, guestReady: true });
       if (round.localSubmitted && round.remoteSubmitted) roundResolveHost();
-      else actualiserCriseTempsReel();
       return;
     }
 
     if (msg.type === 'submit_ack' && net.role === 'guest') {
       if (!cr || msg.key !== roundKey()) return;
       round.remoteSubmitted = !!msg.hostReady;
-      actualiserCriseTempsReel();
       return;
     }
 
     if (msg.type === 'round_status' && net.role === 'guest') {
       if (!cr || msg.key !== roundKey()) return;
       round.remoteSubmitted = !!msg.hostReady;
-      actualiserCriseTempsReel();
       return;
     }
 
@@ -3166,7 +3074,7 @@ input::placeholder{color:#5d6e80;}
     }
     taille();
     window.addEventListener('resize', taille);
-    for (var i = 0; i < 40; i++) fl.push({ x: Math.random(), y: Math.random(), v: 0.0004 + Math.random() * 0.0011, d: 0.0006 + Math.random() * 0.0014, r: 0.5 + Math.random() * 1.4, a: 0.16 + Math.random() * 0.4 });
+    for (var i = 0; i < 70; i++) fl.push({ x: Math.random(), y: Math.random(), v: 0.0004 + Math.random() * 0.0011, d: 0.0006 + Math.random() * 0.0014, r: 0.5 + Math.random() * 1.4, a: 0.16 + Math.random() * 0.4 });
     function boucle() {
       x.clearRect(0, 0, w, h);
       for (var i = 0; i < fl.length; i++) {
@@ -3180,7 +3088,7 @@ input::placeholder{color:#5d6e80;}
         x.arc(f.x * w, f.y * h, f.r * (window.devicePixelRatio > 1 ? 2 : 1), 0, 6.283);
         x.fill();
       }
-      setTimeout(function(){ requestAnimationFrame(boucle); }, 40);
+      requestAnimationFrame(boucle);
     }
     if (!reduit) boucle();
   }
@@ -3493,7 +3401,7 @@ input::placeholder{color:#5d6e80;}
         H('button', { class: 'btn-large btn-primaire', onclick: copierCodeStation }, 'Copier le code'),
         H('button', { class: 'btn-large', onclick: partagerStation }, 'Partager le lien')
       ),
-      H('div', { class: 'petit', text: net.connected ? 'Binôme connecté.' : 'En attente du binôme…' })
+      H('div', { class: 'petit', 'data-p2p-status':'1', text: net.connected ? 'Binôme connecté.' : 'En attente du binôme…' })
     );
   }
 
@@ -4062,7 +3970,7 @@ input::placeholder{color:#5d6e80;}
     var roleLabel = save.poste === 'tech' ? 'Poste technique' : save.poste === 'equipage' ? 'Poste équipage' : 'Démo';
     wrap.appendChild(H('span', { class: 'etiquette', text: 'Décision · ' + roleLabel }));
     var meta = roundStateMeta();
-    wrap.appendChild(H('div', { class: 'boree-turnline ' + meta.cls },
+    wrap.appendChild(H('div', { class: 'boree-turnline ' + meta.cls, 'data-p2p-status':'1' },
       H('strong', { text: meta.label }), H('span', { text: meta.text })
     ));
     var corps = H('div', {});
@@ -4078,16 +3986,7 @@ input::placeholder{color:#5d6e80;}
       if (!editable(i)) return;
       round.localDec[i] = v;
       dec = round.localDec;
-      actualiserSelectionLocaleUI(i);
-      if (net.connected && save.p2pRole !== 'demo') {
-        try { if (draftTimer) clearTimeout(draftTimer); } catch (e) {}
-        draftTimer = setTimeout(function(){
-          draftTimer = null;
-          if (net.connected && round.key === roundKey() && !round.localSubmitted) {
-            p2pSend({ type:'draft', key:round.key, poste:save.poste, values:roundSubmitValues() });
-          }
-        }, 350);
-      }
+      redessine();
     }
     function lockNote(i, label) {
       return H('div', { class: 'note-regle', style: 'margin-top:7px', text: roleForIndex(cr, i, save.poste) ? (round.localSubmitted ? '✓ ' + label + ' verrouillé.' : label + ' — ta décision.') : label + ' — décision de l’autre poste.' });
@@ -4115,7 +4014,7 @@ input::placeholder{color:#5d6e80;}
           var conso = 0;
           cr.mods.forEach(function (m, i) { conso += cr.cout[m.id][val(i)]; });
           var sur = conso > cr.budget + 1e-9;
-          corps.appendChild(H('div', { class: 'petit', 'data-live-charge':'1', style: 'margin-top:10px;color:' + (sur ? 'var(--grave)' : 'var(--sourd)'), text: 'Charge demandée : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (sur ? 'le groupe va décrocher.' : 'dans les marges.') }));
+          corps.appendChild(H('div', { class: 'petit', style: 'margin-top:10px;color:' + (sur ? 'var(--grave)' : 'var(--sourd)'), text: 'Charge demandée : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (sur ? 'le groupe va décrocher.' : 'dans les marges.') }));
         }
         corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:16px', text: 'Où dort chacun' }));
         cr.eq.forEach(function (c, j) {
@@ -4413,7 +4312,7 @@ input::placeholder{color:#5d6e80;}
         H('h2', { class: 'titre-bloc', text: net.connected ? 'Connexion active' : 'Connexion absente' })
       ),
       H('p', { class: 'prose', text: net.connected
-        ? 'Les décisions validées circulent directement entre les deux téléphones. La sauvegarde complète reste conservée sur chaque appareil.'
+        ? 'Les décisions validées sont synchronisées directement entre les deux téléphones. La sauvegarde complète reste conservée sur chaque appareil.'
         : 'La partie peut continuer localement. Une reconnexion récupère ensuite la sauvegarde détenue par le téléphone hôte.' }),
       save.p2pRole === 'host' ? H('div', { class: 'caisson pile invitation-code-first' },
         H('span', { class: 'etiquette', text: 'Code de station' }),
@@ -4422,7 +4321,7 @@ input::placeholder{color:#5d6e80;}
       ) : null,
       H('div', { class: 'caisson pile' },
         H('span', { class: 'etiquette', text: 'État P2P' }),
-        H('div', { class: 'etat-code', text: p2pStatusText() || 'hors ligne' }),
+        H('div', { class: 'etat-code', 'data-p2p-status':'1', text: p2pStatusText() || 'hors ligne' }),
         save.p2pRole === 'host' ? H('div', { class: 'petit', style: 'margin-top:8px;word-break:break-all', text: 'ID hôte : ' + (save.hostPeerId || '—') }) : null
       ),
       actions,
