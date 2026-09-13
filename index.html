@@ -6,9 +6,6 @@
 <meta name="description" content="Borée — un jeu de coopération asymétrique à deux, sur deux téléphones. Une station polaire, un hiver à passer.">
 <meta name="theme-color" content="#070a0f">
 <style>html,body{margin:0;background:#070a0f}img{max-width:100%}[hidden]{display:none!important}.talent-grid{display:grid;position:relative;grid-template-columns:1fr 1fr;gap:8px}.talent{appearance:none;text-align:left;border:1px solid var(--ligne);background:var(--fond);border-radius:10px;padding:11px;display:flex;flex-direction:column;gap:5px;min-height:112px;color:var(--encre);cursor:pointer}.talent-grid:before{content:"";position:absolute;left:50%;top:8px;bottom:8px;border-left:1px solid var(--ligne);opacity:.7}.talent{position:relative}.talent b{font-size:13px}.talent span{font-family:var(--mono);font-size:9px;color:var(--sourd);text-transform:uppercase;letter-spacing:.08em}.talent i{font-style:normal;font-size:11px;line-height:1.35;color:var(--sourd)}.talent.owned{border-color:var(--givre)}.talent.locked{opacity:.42}.indice-metier{margin-top:10px;padding:10px 12px;border-left:2px solid var(--givre);background:rgba(255,255,255,.025);display:flex;flex-direction:column;gap:3px}.indice-metier b{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em}.indice-metier span{font-size:12px;line-height:1.4;color:var(--sourd)}@media(max-width:370px){.talent-grid{grid-template-columns:1fr}}</style>
-<style id="boree-p2p-smooth">
-.boree-turnline{contain:content}.boree-choice-meta,.boree-load-summary{font-variant-numeric:tabular-nums}
-</style>
 <style id="boree-polish3">
 :root{--focus-ring:0 0 0 2px rgba(84,208,226,.28),0 0 0 4px rgba(84,208,226,.10)}
 button,.menu-item,.resume-card,.dossier-tabs button,.segments button,.btn-large,.btn-discret{transition:transform .14s ease,border-color .14s ease,background-color .14s ease,color .14s ease,box-shadow .14s ease,opacity .14s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -2383,29 +2380,20 @@ input::placeholder{color:#5d6e80;}
     try { barre(); } catch (e) { /* démarrage : barre pas encore prête */ }
   }
 
-  var p2pUiFrame = null;
-  function programmerMiseAJourCrise() {
-    if (p2pUiFrame != null) return;
-    var run = function(){
-      p2pUiFrame = null;
-      try { actualiserCriseTempsReel(); } catch (e) {}
-    };
-    if (window.requestAnimationFrame) p2pUiFrame = requestAnimationFrame(run);
-    else p2pUiFrame = setTimeout(run, 50);
-  }
   function p2pSetStatus() {
     rafraichirBarre();
     try {
       if (ecranCourant === 'hub') rendreHub();
-      else if (ecranCourant === 'crise') programmerMiseAJourCrise();
+      else if (ecranCourant === 'crise') actualiserCriseTempsReel();
       else if (ecranCourant === 'transmission') rendreTransmissionAttente();
     } catch (e) { /* rendu non critique */ }
   }
 
+  var uiSyncTimer = null;
+  var uiSyncDirty = false;
+
   function actualiserCriseTempsReel() {
     if (ecranCourant !== 'crise' || !cr) return;
-    // Ne jamais reconstruire tout l'écran pendant qu'un joueur manipule ses choix.
-    // On met uniquement à jour l'état de la manche et les sélections distantes.
     try {
       var meta = roundStateMeta();
       var turn = document.querySelector('#ecran-crise .boree-turnline');
@@ -2421,20 +2409,61 @@ input::placeholder{color:#5d6e80;}
         submit.disabled = !!round.localSubmitted;
         submit.textContent = round.localSubmitted ? 'Décision verrouillée' : (net.connected && save.p2pRole !== 'demo' ? 'Valider ma décision' : 'Valider et transmettre');
       }
-      synchroniserChoixDistantUI();
+      planifierSynchronisationChoixDistant();
     } catch (e) { /* rendu léger non critique */ }
+  }
+
+  function planifierSynchronisationChoixDistant() {
+    uiSyncDirty = true;
+    if (uiSyncTimer != null) return;
+    uiSyncTimer = window.setTimeout(function(){
+      uiSyncTimer = null;
+      if (!uiSyncDirty) return;
+      uiSyncDirty = false;
+      synchroniserChoixDistantUI();
+    }, 120);
   }
 
   function synchroniserChoixDistantUI() {
     if (ecranCourant !== 'crise' || !cr || !round.remoteDec) return;
-    var nodes = document.querySelectorAll('#ecran-crise [data-round-index][data-round-value]');
+    var idxs = indicesDuRole(cr, round.remotePoste || posteOppose(save.poste));
+    for (var j = 0; j < idxs.length; j++) {
+      var idx = idxs[j];
+      var selector = '#ecran-crise [data-round-index=\"' + idx + '\"][data-round-value]';
+      var nodes = document.querySelectorAll(selector);
+      for (var i = 0; i < nodes.length; i++) {
+        var v = parseInt(nodes[i].getAttribute('data-round-value'), 10);
+        if (Number.isFinite(v)) nodes[i].setAttribute('aria-pressed', String(round.remoteDec[idx] === v));
+      }
+    }
+  }
+
+  function actualiserSelectionLocaleUI(idx) {
+    if (ecranCourant !== 'crise' || !cr) return;
+    var selector = '#ecran-crise [data-round-index=\"' + idx + '\"][data-round-value]';
+    var nodes = document.querySelectorAll(selector);
+    var current = round.localDec ? round.localDec[idx] : null;
     for (var i = 0; i < nodes.length; i++) {
-      var el = nodes[i];
-      var idx = parseInt(el.getAttribute('data-round-index'), 10);
-      var v = parseInt(el.getAttribute('data-round-value'), 10);
-      if (!Number.isFinite(idx) || !Number.isFinite(v)) continue;
-      if (roleForIndex(cr, idx, save.poste)) continue;
-      el.setAttribute('aria-pressed', String(round.remoteDec[idx] === v));
+      var v = parseInt(nodes[i].getAttribute('data-round-value'), 10);
+      if (Number.isFinite(v)) nodes[i].setAttribute('aria-pressed', String(current === v));
+    }
+    if (cr.type === 'thermique' && idx < cr.mods.length && save.poste === 'tech') {
+      var ligne = nodes.length ? nodes[0].closest('.ligne-dec') : null;
+      if (ligne) {
+        var span = ligne.querySelector('.quoi span');
+        if (span) {
+          var m = cr.mods[idx], vv = current == null ? 0 : current;
+          span.textContent = cr.temps[m.id][vv] + '° · ' + cr.cout[m.id][vv].toFixed(1) + ' kW';
+        }
+      }
+      var total = 0;
+      cr.mods.forEach(function(m, i){ total += cr.cout[m.id][round.localDec[i]]; });
+      var live = document.querySelector('#ecran-crise [data-live-charge]');
+      if (live) {
+        var sur = total > cr.budget + 1e-9;
+        live.textContent = 'Charge demandée : ' + total.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (sur ? 'le groupe va décrocher.' : 'dans les marges.');
+        live.style.color = sur ? 'var(--grave)' : 'var(--sourd)';
+      }
     }
   }
 
@@ -2959,7 +2988,7 @@ input::placeholder{color:#5d6e80;}
       var inferredRole = msg.poste && msg.poste !== save.poste ? msg.poste : (net.remotePoste || posteOppose(save.poste));
       if (net.role === 'host' && inferredRole && inferredRole !== save.poste) net.remotePoste = inferredRole;
       if (!msg.poste || !inferredRole || msg.poste === save.poste || msg.poste !== inferredRole || !appliquerBrouillonDistant(msg.values, inferredRole, msg.key)) return;
-      programmerMiseAJourCrise();
+      planifierSynchronisationChoixDistant();
       return;
     }
 
@@ -2982,14 +3011,14 @@ input::placeholder{color:#5d6e80;}
     if (msg.type === 'submit_ack' && net.role === 'guest') {
       if (!cr || msg.key !== roundKey()) return;
       round.remoteSubmitted = !!msg.hostReady;
-      programmerMiseAJourCrise();
+      actualiserCriseTempsReel();
       return;
     }
 
     if (msg.type === 'round_status' && net.role === 'guest') {
       if (!cr || msg.key !== roundKey()) return;
       round.remoteSubmitted = !!msg.hostReady;
-      programmerMiseAJourCrise();
+      actualiserCriseTempsReel();
       return;
     }
 
@@ -3137,7 +3166,7 @@ input::placeholder{color:#5d6e80;}
     }
     taille();
     window.addEventListener('resize', taille);
-    for (var i = 0; i < 70; i++) fl.push({ x: Math.random(), y: Math.random(), v: 0.0004 + Math.random() * 0.0011, d: 0.0006 + Math.random() * 0.0014, r: 0.5 + Math.random() * 1.4, a: 0.16 + Math.random() * 0.4 });
+    for (var i = 0; i < 40; i++) fl.push({ x: Math.random(), y: Math.random(), v: 0.0004 + Math.random() * 0.0011, d: 0.0006 + Math.random() * 0.0014, r: 0.5 + Math.random() * 1.4, a: 0.16 + Math.random() * 0.4 });
     function boucle() {
       x.clearRect(0, 0, w, h);
       for (var i = 0; i < fl.length; i++) {
@@ -3151,7 +3180,7 @@ input::placeholder{color:#5d6e80;}
         x.arc(f.x * w, f.y * h, f.r * (window.devicePixelRatio > 1 ? 2 : 1), 0, 6.283);
         x.fill();
       }
-      requestAnimationFrame(boucle);
+      setTimeout(function(){ requestAnimationFrame(boucle); }, 40);
     }
     if (!reduit) boucle();
   }
@@ -4045,35 +4074,11 @@ input::placeholder{color:#5d6e80;}
       return round.remoteDec ? round.remoteDec[i] : (round.localDec ? round.localDec[i] : dec[i]);
     }
     var draftTimer = null;
-    function mettreAJourChoixLocalUI(i, v) {
-      try {
-        var nodes = document.querySelectorAll('#ecran-crise [data-round-index=\"' + String(i) + '\"][data-round-value]');
-        for (var n = 0; n < nodes.length; n++) {
-          var el = nodes[n];
-          el.setAttribute('aria-pressed', String(parseInt(el.getAttribute('data-round-value'),10) === v));
-        }
-        if (cr && cr.type === 'thermique' && save.poste === 'tech') {
-          var meta = document.querySelectorAll('#ecran-crise .boree-choice-meta[data-round-index=\"' + String(i) + '\"]')[0];
-          if (meta) {
-            var mod = cr.mods[i];
-            meta.textContent = cr.temps[mod.id][v] + '° · ' + cr.cout[mod.id][v].toFixed(1) + ' kW';
-          }
-          var total = 0;
-          for (var j = 0; j < cr.mods.length; j++) total += cr.cout[cr.mods[j].id][val(j)];
-          var summary = document.querySelector('#ecran-crise .boree-load-summary');
-          if (summary) {
-            var over = total > cr.budget + 1e-9;
-            summary.textContent = 'Charge demandée : ' + total.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (over ? 'le groupe va décrocher.' : 'dans les marges.');
-            summary.style.color = over ? 'var(--grave)' : 'var(--sourd)';
-          }
-        }
-      } catch (e) {}
-    }
     function setVal(i, v) {
       if (!editable(i)) return;
       round.localDec[i] = v;
       dec = round.localDec;
-      mettreAJourChoixLocalUI(i, v);
+      actualiserSelectionLocaleUI(i);
       if (net.connected && save.p2pRole !== 'demo') {
         try { if (draftTimer) clearTimeout(draftTimer); } catch (e) {}
         draftTimer = setTimeout(function(){
@@ -4081,7 +4086,7 @@ input::placeholder{color:#5d6e80;}
           if (net.connected && round.key === roundKey() && !round.localSubmitted) {
             p2pSend({ type:'draft', key:round.key, poste:save.poste, values:roundSubmitValues() });
           }
-        }, 120);
+        }, 350);
       }
     }
     function lockNote(i, label) {
@@ -4101,7 +4106,7 @@ input::placeholder{color:#5d6e80;}
         corps.appendChild(H('div', { class: 'etiquette', text: 'Régime de chauffage' }));
         cr.mods.forEach(function (m, i) {
           corps.appendChild(H('div', { class: 'ligne-dec' },
-            H('div', { class: 'quoi' }, H('b', { text: m.nom }), save.poste === 'tech' ? H('span', { class:'boree-choice-meta', 'data-round-index':String(i), text: cr.temps[m.id][val(i)] + '° · ' + cr.cout[m.id][val(i)].toFixed(1) + ' kW' }) : null),
+            H('div', { class: 'quoi' }, H('b', { text: m.nom }), save.poste === 'tech' ? H('span', { text: cr.temps[m.id][val(i)] + '° · ' + cr.cout[m.id][val(i)].toFixed(1) + ' kW' }) : null),
             segmentsOwned(['Purgé', 'Veilleuse', 'Partiel', 'Plein'], i),
             lockNote(i, 'Chauffage')
           ));
@@ -4110,7 +4115,7 @@ input::placeholder{color:#5d6e80;}
           var conso = 0;
           cr.mods.forEach(function (m, i) { conso += cr.cout[m.id][val(i)]; });
           var sur = conso > cr.budget + 1e-9;
-          corps.appendChild(H('div', { class: 'petit boree-load-summary', style: 'margin-top:10px;color:' + (sur ? 'var(--grave)' : 'var(--sourd)'), text: 'Charge demandée : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (sur ? 'le groupe va décrocher.' : 'dans les marges.') }));
+          corps.appendChild(H('div', { class: 'petit', 'data-live-charge':'1', style: 'margin-top:10px;color:' + (sur ? 'var(--grave)' : 'var(--sourd)'), text: 'Charge demandée : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (sur ? 'le groupe va décrocher.' : 'dans les marges.') }));
         }
         corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:16px', text: 'Où dort chacun' }));
         cr.eq.forEach(function (c, j) {
