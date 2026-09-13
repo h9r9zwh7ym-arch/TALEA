@@ -147,6 +147,20 @@ html[data-screen="journal"] .entree:after{content:"";position:absolute;left:-17p
 }
 </style>
 
+<style id="boree-connection-code">
+.invitation-code-first{gap:12px!important}
+.boree-share-code{font:700 clamp(24px,7vw,34px) var(--mono)!important;letter-spacing:.16em!important;text-align:center;padding:15px 10px!important;color:var(--givre)!important;border-color:var(--accent)!important;background:linear-gradient(180deg,rgba(84,208,226,.08),rgba(84,208,226,.02))!important;box-shadow:inset 0 0 24px rgba(84,208,226,.04)}
+.boree-share-actions{gap:8px}.boree-share-actions .btn-large{flex:1;min-width:0}
+@media(max-width:380px){.boree-share-actions{flex-direction:column}.boree-share-actions .btn-large{width:100%}}
+[data-poste="equipage"] .boree-share-code{border-color:var(--accent)!important;background:linear-gradient(180deg,rgba(227,154,108,.09),rgba(227,154,108,.02))!important}
+</style>
+<style id="boree-connection-code">
+.invitation-code-first{gap:12px!important}
+.boree-share-code{font:700 clamp(24px,7vw,34px) var(--mono)!important;letter-spacing:.16em!important;text-align:center;padding:15px 10px!important;color:var(--givre)!important;border-color:var(--accent)!important;background:linear-gradient(180deg,rgba(84,208,226,.08),rgba(84,208,226,.02))!important;box-shadow:inset 0 0 24px rgba(84,208,226,.04)}
+.boree-share-actions{gap:8px}.boree-share-actions .btn-large{flex:1;min-width:0}
+@media(max-width:380px){.boree-share-actions{flex-direction:column}.boree-share-actions .btn-large{width:100%}}
+[data-poste="equipage"] .boree-share-code{border-color:var(--accent)!important;background:linear-gradient(180deg,rgba(227,154,108,.09),rgba(227,154,108,.02))!important}
+</style>
 <title>Borée</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Saira+Condensed:wght@600;700&display=swap">
 
@@ -2302,7 +2316,8 @@ input::placeholder{color:#5d6e80;}
     role: null,
     connected: false,
     remotePoste: null,
-    connecting: false
+    connecting: false,
+    retryTimer: null
   };
 
   function nouveauPeerId() {
@@ -2313,6 +2328,28 @@ input::placeholder{color:#5d6e80;}
     } catch (e) { bytes = null; }
     for (var i = 0; i < 8; i++) out += a[(bytes ? bytes[i] : Math.floor(Math.random() * 256)) % a.length];
     return out;
+  }
+
+  function codeStation(hostId) {
+    var v = String(hostId || '');
+    if (v.toLowerCase().indexOf('boree-') === 0) v = v.slice(6);
+    return v.toUpperCase();
+  }
+
+  function normaliserCodeStation(input) {
+    var raw = String(input || '').trim();
+    if (!raw) return '';
+    try {
+      if (/^https?:\/\//i.test(raw)) {
+        var u = new URL(raw);
+        var join = u.searchParams.get('join');
+        if (join) raw = join;
+      }
+    } catch (e) {}
+    raw = raw.replace(/\s+/g, '');
+    if (raw.toLowerCase().indexOf('boree-') === 0) return 'boree-' + raw.slice(6);
+    raw = raw.replace(/[^0-9A-Za-z]/g, '');
+    return raw ? 'boree-' + raw : '';
   }
 
   function p2pSaveShape() {
@@ -2348,6 +2385,18 @@ input::placeholder{color:#5d6e80;}
     try { net.conn.send(msg); return true; } catch (e) { return false; }
   }
 
+  function p2pScheduleGuestRetry(delay) {
+    if (net.role !== 'guest' || !save.hostPeerId || net.connected) return;
+    try { if (net.retryTimer) clearTimeout(net.retryTimer); } catch (e) {}
+    net.retryTimer = setTimeout(function () {
+      net.retryTimer = null;
+      if (net.role === 'guest' && save.hostPeerId && !net.connected) {
+        p2pConnectToHost();
+        p2pScheduleGuestRetry(1800);
+      }
+    }, delay || 900);
+  }
+
   function p2pCloseConn() {
     try { if (net.conn) net.conn.close(); } catch (e) {}
     net.conn = null;
@@ -2356,6 +2405,8 @@ input::placeholder{color:#5d6e80;}
   }
 
   function p2pDestroy() {
+    try { if (net.retryTimer) clearTimeout(net.retryTimer); } catch (e) {}
+    net.retryTimer = null;
     p2pCloseConn();
     try { if (net.peer) net.peer.destroy(); } catch (e) {}
     net.peer = null;
@@ -2552,8 +2603,12 @@ input::placeholder{color:#5d6e80;}
     conn.on('open', function () {
       net.connected = true;
       net.connecting = false;
+      try { if (net.retryTimer) clearTimeout(net.retryTimer); } catch (e) {}
+      net.retryTimer = null;
       p2pSetStatus();
-      if (net.role === 'guest') {
+      if (net.role === 'host') {
+        p2pSendSnapshot();
+      } else {
         p2pSend({ type: 'hello', seed: save.seed || null, poste: save.poste || null, protocol: 3 });
         setTimeout(p2pResendPending, 120);
       }
@@ -2565,6 +2620,7 @@ input::placeholder{color:#5d6e80;}
       net.connected = false;
       net.connecting = false;
       p2pSetStatus();
+      if (net.role === 'guest') p2pScheduleGuestRetry(900);
     });
     conn.on('error', function () {
       if (net.conn !== conn) return;
@@ -2594,6 +2650,7 @@ input::placeholder{color:#5d6e80;}
       net.connecting = false;
       net.connected = false;
       p2pSetStatus();
+      p2pScheduleGuestRetry(900);
     }
   }
 
@@ -2621,18 +2678,22 @@ input::placeholder{color:#5d6e80;}
       p2pSetStatus();
       if (net.role === 'guest') {
         setTimeout(p2pConnectToHost, 80);
+        p2pScheduleGuestRetry(1100);
       }
     });
     net.peer.on('connection', p2pHostAccept);
     net.peer.on('disconnected', function () {
-      /* La connexion P2P peut rester vivante ; si elle se ferme, le bouton
-         de reconnexion dans Synchronisation relance le lien. */
       if (!net.connected) net.connecting = false;
       p2pSetStatus();
+      if (net.role === 'guest' && save.hostPeerId) {
+        try { net.peer.reconnect(); } catch (e) {}
+        setTimeout(function () { if (!net.connected) p2pConnectToHost(); }, 350);
+        p2pScheduleGuestRetry(1200);
+      }
     });
     net.peer.on('error', function () {
       net.connecting = false;
-      if (net.role === 'guest') p2pCloseConn();
+      if (net.role === 'guest') { p2pCloseConn(); p2pScheduleGuestRetry(900); }
       p2pSetStatus();
     });
   }
@@ -3166,7 +3227,7 @@ input::placeholder{color:#5d6e80;}
   function partagerStation() {
     var url = invitationLien();
     if (navigator.share) {
-      navigator.share({ title: 'Borée', text: 'Rejoins ma station Borée.', url: url }).catch(function () {});
+      navigator.share({ title: 'Borée', text: 'Rejoins ma station Borée. Code : ' + codeStation(save.hostPeerId), url: url }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -3176,48 +3237,65 @@ input::placeholder{color:#5d6e80;}
     }
   }
 
+  function copierCodeStation() {
+    var code = codeStation(save.hostPeerId);
+    if (!code) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(function(){ alert('Code de station copié.'); }).catch(function(){ prompt('Copie ce code :', code); });
+    } else {
+      prompt('Copie ce code :', code);
+    }
+  }
+
   function invitationBloc() {
     if (!save || save.p2pRole !== 'host' || !save.hostPeerId) return null;
-    return H('div', { class: 'caisson pile' },
-      H('span', { class: 'etiquette', text: 'Invitation de la station' }),
-      H('p', { class: 'prose', style: 'margin:0' }, 'Partage ce lien une seule fois. Ton binôme rejoint directement cette station ; ensuite toutes les décisions passent par la connexion P2P.'),
-      H('div', { class: 'etat-code', style: 'font-size:15px;letter-spacing:.08em;word-break:break-all' }, save.hostPeerId),
-      H('button', { class: 'btn-large btn-primaire', onclick: partagerStation }, 'Partager le lien'),
+    var code = codeStation(save.hostPeerId);
+    return H('div', { class: 'caisson pile invitation-code-first' },
+      H('span', { class: 'etiquette', text: 'Code de station' }),
+      H('p', { class: 'prose', style: 'margin:0' }, 'Donne simplement ce code à ton binôme. Il peut le saisir directement sur son téléphone. Le lien d’invitation reste disponible si tu préfères.'),
+      H('div', { class: 'etat-code boree-share-code', text: code }),
+      H('div', { class: 'rang boree-share-actions' },
+        H('button', { class: 'btn-large btn-primaire', onclick: copierCodeStation }, 'Copier le code'),
+        H('button', { class: 'btn-large', onclick: partagerStation }, 'Partager le lien')
+      ),
       H('div', { class: 'petit', text: net.connected ? 'Binôme connecté.' : 'En attente du binôme…' })
     );
   }
 
   function rendreAttenteConnexion() {
     var box = vide($('ecran-poste'));
+    var code = codeStation(save.hostPeerId);
     box.appendChild(H('div', { class: 'pile' },
       H('div', {},
         H('span', { class: 'etiquette', text: 'Connexion' }),
-        H('h2', { class: 'titre-bloc', text: 'Connexion à la station' })
+        H('h2', { class: 'titre-bloc', text: net.connected ? 'Station trouvée' : 'Connexion à la station' })
       ),
-      H('p', { class: 'prose', text: 'Le téléphone qui héberge la station est recherché. Une fois la connexion établie, son état de sauvegarde sera chargé ici.' }),
-      H('div', { class: 'caisson' },
-        H('span', { class: 'etiquette', text: 'Station hôte' }),
-        H('div', { class: 'etat-code', text: save.hostPeerId || '—' })
+      H('p', { class: 'prose', text: net.connected
+        ? 'Connexion établie. La sauvegarde de la station est en cours de réception.'
+        : 'La connexion se fait automatiquement. Garde cette page ouverte pendant que le téléphone hôte est recherché.' }),
+      H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: 'Code de station' }),
+        H('div', { class: 'etat-code boree-share-code', text: code || save.hostPeerId || '—' }),
+        H('div', { class: 'petit', text: p2pStatusText() || 'Connexion…' })
       ),
-      H('div', { class: 'petit', text: p2pStatusText() || 'Connexion…' }),
-      H('button', { class: 'btn-large btn-primaire', onclick: function () { p2pConnectToHost(); } }, 'Réessayer'),
-      H('button', { class: 'btn-large btn-discret', onclick: function () { p2pDestroy(); save = { seed:null, decisions:[], poste:null, p2pRole:null, hostPeerId:null, peerId:null }; enregistrer(); rendreAccueil(); aller('accueil'); } }, 'Retour')
+      H('button', { class: 'btn-large btn-primaire', onclick: function () { p2pConnectToHost(); } }, 'Réessayer maintenant'),
+      H('button', { class: 'btn-large btn-discret', onclick: function () { p2pDestroy(); rendreRejoindre(); aller('accueil'); } }, 'Changer de code')
     ));
   }
 
   function rendreRejoindre() {
     var box = vide($('ecran-accueil'));
-    var champ = H('input', { type: 'text', id: 'champ-station', maxlength: '64', placeholder: 'CODE D’INVITATION', autocapitalize: 'characters', autocomplete: 'off' });
+    var champ = H('input', { type: 'text', id: 'champ-station', maxlength: '80', placeholder: 'ABCD1234', autocapitalize: 'characters', autocomplete: 'off', inputmode: 'text', spellcheck: 'false' });
     var err = H('div', { class: 'erreur' });
     box.appendChild(H('div', { class: 'pile' },
       H('h2', { class: 'titre-bloc', text: 'Rejoindre une station' }),
-      H('p', { class: 'prose', text: 'Entre le code d’invitation de ton binôme. Cette étape n’est nécessaire qu’une seule fois.' }),
-      H('div', {}, H('span', { class: 'etiquette', text: 'Code d’invitation' }), champ),
+      H('p', { class: 'prose', text: 'Entre le code de station que ton binôme voit sur son téléphone. Tu peux aussi coller directement son lien d’invitation.' }),
+      H('div', {}, H('span', { class: 'etiquette', text: 'Code de station' }), champ),
       err,
       H('button', {
         class: 'btn-large btn-primaire', onclick: function () {
-          var v = String(champ.value || '').trim();
-          if (!v) { err.textContent = 'Code vide.'; return; }
+          var v = normaliserCodeStation(champ.value);
+          if (!v || v.length < 7) { err.textContent = 'Entre un code de station valide.'; return; }
           p2pDestroy();
           save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: v, peerId: null, pendingLocal: null, storySeen: false };
           enregistrer();
@@ -4082,6 +4160,11 @@ input::placeholder{color:#5d6e80;}
       H('p', { class: 'prose', text: net.connected
         ? 'Les décisions validées circulent directement entre les deux téléphones. La sauvegarde complète reste conservée sur chaque appareil.'
         : 'La partie peut continuer localement. Une reconnexion récupère ensuite la sauvegarde détenue par le téléphone hôte.' }),
+      save.p2pRole === 'host' ? H('div', { class: 'caisson pile invitation-code-first' },
+        H('span', { class: 'etiquette', text: 'Code de station' }),
+        H('div', { class: 'etat-code boree-share-code', text: codeStation(save.hostPeerId) }),
+        H('button', { class: 'btn-large btn-primaire', onclick: copierCodeStation }, 'Copier le code')
+      ) : null,
       H('div', { class: 'caisson pile' },
         H('span', { class: 'etiquette', text: 'État P2P' }),
         H('div', { class: 'etat-code', text: p2pStatusText() || 'hors ligne' }),
@@ -4163,7 +4246,7 @@ input::placeholder{color:#5d6e80;}
     var joinId = null;
     try { joinId = new URLSearchParams(location.search).get('join'); } catch (e) { joinId = null; }
     if (joinId) {
-      save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: String(joinId), peerId: null, storySeen: false };
+      save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: normaliserCodeStation(String(joinId)), peerId: null, storySeen: false };
       enregistrer();
       try { window.history.replaceState({}, '', location.pathname + location.hash); } catch (e) {}
       p2pInit();
