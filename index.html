@@ -2754,14 +2754,6 @@ input::placeholder{color:#5d6e80;}
   function p2pHandleMessage(msg) {
     if (!msg || !msg.type) return;
 
-    // Le snapshot est le message d'initialisation envoyé par l'hôte.
-    // Sans ce dispatch, le guest se connecte en WebRTC mais reste bloqué
-    // sur l'écran d'attente car son état de station n'est jamais chargé.
-    if (msg.type === 'snapshot' && net.role === 'guest') {
-      p2pHandleSnapshot(msg);
-      return;
-    }
-
     if (msg.type === 'hello' && net.role === 'host') {
       net.remotePoste = msg.poste || null;
       p2pSendSnapshot();
