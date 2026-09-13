@@ -2259,10 +2259,68 @@ input::placeholder{color:#5d6e80;}
    ============================================================ */
 (function () {
   'use strict';
+
+  /*
+   * ============================================================
+   * BORÉE — RUNTIME UI / NETWORK HANDOFF FOR FUTURE DEVELOPERS
+   * ============================================================
+   *
+   * IMPORTANT ARCHITECTURE BOUNDARY
+   * -------------------------------
+   * Script #1 above is the authoritative game engine (window.Boree).
+   * Do not modify it from this UI layer. The engine is deterministic:
+   *   state = replay(seed, decisions)
+   *
+   * This script owns only:
+   *   1) persistence / localStorage;
+   *   2) DOM rendering and navigation;
+   *   3) the PeerJS connection;
+   *   4) the cooperative round protocol.
+   *
+   * P2P INVARIANTS
+   * --------------
+   *   • Host is authoritative for resolution and persistent decisions.
+   *   • Guest never resolves a crisis locally in online mode.
+   *   • No real-time draft synchronisation is used by design.
+   *   • A player sends one complete decision only when pressing Validate.
+   *   • The host merges the two role-owned slices, resolves once, then sends
+   *     one `resolved` message to the guest.
+   *   • Network events must never rebuild the whole crisis UI while the user
+   *     is thinking. Keep p2pSetStatus() lightweight.
+   *
+   * PERFORMANCE RULES
+   * ------------------
+   *   • Avoid polling loops except the short guest submit retry timer.
+   *   • Always clear timers in p2pDestroy(), connection close, or resolution.
+   *   • Never add per-click network traffic back without a concrete need.
+   *   • Prefer targeted DOM updates over full-screen re-rendering.
+   *
+   * SAFE EXTENSION POINTS
+   * ---------------------
+   *   • New visual components belong in render functions below.
+   *   • New network message types belong in p2pHandleMessage(), with an
+   *     explicit sender/receiver contract and cleanup path.
+   *   • New persistent fields must be normalised in charger()/p2pSaveShape().
+   *   • New decision ownership rules must be added to roleForIndex() and
+   *     tested for every crisis family.
+   *
+   * KEEP THE FOLLOWING OUT OF THIS LAYER
+   * -------------------------------------
+   *   • gameplay numbers, balance, crisis questions, consequences;
+   *   • deterministic RNG rules;
+   *   • state transitions implemented by B.resolve()/B.replay().
+   */
+
   var B = window.Boree;
   var CLE = 'boree.save.v1';
 
   /* ---------- petits outils DOM ---------- */
+  /*
+   * DOM factory used everywhere below.
+   * Boolean HTML attributes are handled as DOM properties, not strings:
+   * `disabled="false"` is still disabled in HTML, so setting/removing the
+   * property explicitly is mandatory for touch controls to remain clickable.
+   */
   function H(tag, attrs) {
     var el = document.createElement(tag);
     if (attrs) Object.keys(attrs).forEach(function (k) {
@@ -2272,8 +2330,9 @@ input::placeholder{color:#5d6e80;}
       else if (k === 'html') el.innerHTML = v;
       else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
       else if (k === 'disabled' || k === 'checked' || k === 'selected' || k === 'multiple' || k === 'required' || k === 'readonly' || k === 'autofocus') {
-        el[k] = !!v;
-        if (el[k]) el.setAttribute(k, ''); else el.removeAttribute(k);
+        var prop = k === 'readonly' ? 'readOnly' : k;
+        el[prop] = !!v;
+        if (el[prop]) el.setAttribute(k, ''); else el.removeAttribute(k);
       }
       else if (v != null) el.setAttribute(k, v);
     });
@@ -2297,7 +2356,9 @@ input::placeholder{color:#5d6e80;}
       if (!raw) return false;
       var o = JSON.parse(raw);
       if (!o || (!o.seed && !(o.p2pRole === 'guest' && o.hostPeerId))) return false;
-      save = { seed: o.seed || null, decisions: o.decisions || [], poste: o.poste || null, p2pRole: o.p2pRole || null, hostPeerId: o.hostPeerId || null, peerId: o.peerId || null, pendingLocal: o.pendingLocal || null, skillOps: Array.isArray(o.skillOps) ? o.skillOps.slice() : [], storySeen: o.storySeen !== false };
+      var decisions = Array.isArray(o.decisions) ? o.decisions.filter(function (x) { return typeof x === 'string'; }) : [];
+      var role = o.p2pRole === 'host' || o.p2pRole === 'guest' ? o.p2pRole : null;
+      save = { seed: typeof o.seed === 'string' ? o.seed : null, decisions: decisions, poste: o.poste === 'tech' || o.poste === 'equipage' ? o.poste : null, p2pRole: role, hostPeerId: typeof o.hostPeerId === 'string' ? o.hostPeerId : null, peerId: typeof o.peerId === 'string' ? o.peerId : null, pendingLocal: o.pendingLocal && typeof o.pendingLocal === 'object' ? o.pendingLocal : null, skillOps: Array.isArray(o.skillOps) ? o.skillOps.filter(function (x) { return x && typeof x.branch === 'string' && typeof x.id === 'string'; }).map(function (x) { return { branch:x.branch, id:x.id }; }) : [], storySeen: o.storySeen !== false };
       p2pSaveShape();
       return true;
     } catch (e) { return false; }
@@ -2443,7 +2504,7 @@ input::placeholder{color:#5d6e80;}
   };
 
   function roundKey() {
-    return st ? [save.seed, st.annee, st.session].join('|') : null;
+    return (st && cr) ? [save.seed, st.annee, st.session].join('|') : null;
   }
 
   function roleForIndex(crise, idx, role) {
@@ -2460,7 +2521,13 @@ input::placeholder{color:#5d6e80;}
       if (idx === 1) return role === 'tech';
       return role === 'equipage';
     }
-    if (idx < crise.taches.length) {
+    if (crise.type === 'evenement') {
+      // Les événements possèdent deux décisions dédiées : technique puis équipage.
+      // Le dernier index reste le plan de semaine, porté par le poste équipage.
+      if (idx === 0) return role === 'tech';
+      return role === 'equipage';
+    }
+    if (idx < (crise.taches || []).length) {
       return ['mecanique', 'electricite', 'soudure'].indexOf(crise.taches[idx].sk) >= 0
         ? role === 'tech' : role === 'equipage';
     }
@@ -2477,6 +2544,15 @@ input::placeholder{color:#5d6e80;}
   }
 
   function initialiserRound(force) {
+    if (!cr) {
+      round.key = null;
+      round.localSubmitted = false;
+      round.remoteSubmitted = false;
+      round.localDec = null;
+      round.remoteDec = null;
+      dec = null;
+      return;
+    }
     var k = roundKey();
     if (!k) return;
     if (force || round.key !== k) {
@@ -2609,6 +2685,7 @@ input::placeholder{color:#5d6e80;}
   }
 
   function roundReadyText() {
+    if (!cr) return net.connected ? 'En attente de la synchronisation du prochain hiver.' : 'Connexion absente.';
     initialiserRound(false);
     if (!net.connected) return 'Connexion absente.';
     if (round.localSubmitted && round.remoteSubmitted) return 'Les deux décisions sont verrouillées. Résolution…';
@@ -2865,6 +2942,11 @@ input::placeholder{color:#5d6e80;}
     }
   }
 
+  /*
+   * Single source of truth for network messages.
+   * Keep the switch/order explicit: handshake/snapshot first, submit/resolve
+   * second, optional administrative messages last. Unknown messages are ignored.
+   */
   function p2pHandleMessage(msg) {
     if (!msg || !msg.type) return;
 
@@ -2973,6 +3055,10 @@ input::placeholder{color:#5d6e80;}
     if (msg.type === 'ping') p2pSend({ type: 'pong' });
   }
 
+  /*
+   * Merge only role-owned decision indices. The engine receives exactly one
+   * complete vector, so gameplay remains identical to an offline resolution.
+   */
   function roundResolveHost() {
     if (net.role !== 'host' || !cr || !round.localSubmitted || !round.remoteSubmitted) return;
     if (round.key !== roundKey()) return;
@@ -3732,7 +3818,7 @@ input::placeholder{color:#5d6e80;}
         H('div', { class: 'dit', text: etat + '. Moral ' + (c.moral > 70 ? 'bon' : c.moral > 45 ? 'moyen' : c.moral > 25 ? 'bas' : 'au fond') + '.' }),
         H('div', { class: 'meta', text: 'dort au ' + (st.modules[c.couchage] ? st.modules[c.couchage].nom : '?') + ' · ' + (c.rythme === 'nuit' ? 'service de nuit' : 'service de jour') + ' · ' + c.trait.label }),
         c.preference ? H('div', { class: 'affinite-courte', text: 'Préférence · ' + c.preference.label }) : null,
-        c.procheId ? H('div', { class: 'affinite-courte', text: 'Lien fort · ' + nomOf(st, c.procheId) }) : null,
+        c.procheId ? H('div', { class: 'affinite-courte', text: 'Lien fort · ' + nomDe(c.procheId) }) : null,
         Array.isArray(c.memoire) && c.memoire.length ? H('div', { class: 'memoire-courte', text: 'Dernière trace · ' + c.memoire[c.memoire.length - 1] }) : null
       ));
     });
@@ -3948,7 +4034,7 @@ input::placeholder{color:#5d6e80;}
   }
 
   function cap(s) { return String(s).charAt(0).toUpperCase() + String(s).slice(1); }
-  function nomDe(id) { var c = st.crew.filter(function (x) { return x.id === id; })[0]; return c ? c.prenom : '?'; }
+  function nomDe(id) { var c = st.crew.find(function (x) { return x.id === id; }); return c ? c.prenom : '?'; }
 
   /* ---------- contrôles de décision ---------- */
   function segments(valeurs, courant, onset) {
@@ -3981,7 +4067,6 @@ input::placeholder{color:#5d6e80;}
       if (roleForIndex(cr, i, save.poste)) return round.localDec ? round.localDec[i] : dec[i];
       return round.remoteDec ? round.remoteDec[i] : (round.localDec ? round.localDec[i] : dec[i]);
     }
-    var draftTimer = null;
     function setVal(i, v) {
       if (!editable(i)) return;
       round.localDec[i] = v;
@@ -4388,6 +4473,18 @@ input::placeholder{color:#5d6e80;}
     box.appendChild(pile);
   }
 
+  /*
+   * STARTUP ORDER
+   * -------------
+   * 1. decorate / animate page
+   * 2. load save
+   * 3. if ?join=... create guest transport
+   * 4. otherwise resume an existing role
+   * 5. render exactly one current screen
+   *
+   * Do not add async rendering work before the initial save/role decision;
+   * Safari can race navigation with storage and PeerJS callbacks.
+   */
   /* ---------- démarrage ---------- */
   document.addEventListener('click',function(e){if(e.target&&e.target.hasAttribute&&e.target.hasAttribute('data-menu-close'))fermerMenu();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape')fermerMenu();});
