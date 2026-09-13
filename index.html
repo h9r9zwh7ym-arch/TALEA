@@ -6,6 +6,9 @@
 <meta name="description" content="Borée — un jeu de coopération asymétrique à deux, sur deux téléphones. Une station polaire, un hiver à passer.">
 <meta name="theme-color" content="#070a0f">
 <style>html,body{margin:0;background:#070a0f}img{max-width:100%}[hidden]{display:none!important}.talent-grid{display:grid;position:relative;grid-template-columns:1fr 1fr;gap:8px}.talent{appearance:none;text-align:left;border:1px solid var(--ligne);background:var(--fond);border-radius:10px;padding:11px;display:flex;flex-direction:column;gap:5px;min-height:112px;color:var(--encre);cursor:pointer}.talent-grid:before{content:"";position:absolute;left:50%;top:8px;bottom:8px;border-left:1px solid var(--ligne);opacity:.7}.talent{position:relative}.talent b{font-size:13px}.talent span{font-family:var(--mono);font-size:9px;color:var(--sourd);text-transform:uppercase;letter-spacing:.08em}.talent i{font-style:normal;font-size:11px;line-height:1.35;color:var(--sourd)}.talent.owned{border-color:var(--givre)}.talent.locked{opacity:.42}.indice-metier{margin-top:10px;padding:10px 12px;border-left:2px solid var(--givre);background:rgba(255,255,255,.025);display:flex;flex-direction:column;gap:3px}.indice-metier b{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em}.indice-metier span{font-size:12px;line-height:1.4;color:var(--sourd)}@media(max-width:370px){.talent-grid{grid-template-columns:1fr}}</style>
+<style id="boree-p2p-smooth">
+.boree-turnline{contain:content}.boree-choice-meta,.boree-load-summary{font-variant-numeric:tabular-nums}
+</style>
 <style id="boree-polish3">
 :root{--focus-ring:0 0 0 2px rgba(84,208,226,.28),0 0 0 4px rgba(84,208,226,.10)}
 button,.menu-item,.resume-card,.dossier-tabs button,.segments button,.btn-large,.btn-discret{transition:transform .14s ease,border-color .14s ease,background-color .14s ease,color .14s ease,box-shadow .14s ease,opacity .14s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -2380,13 +2383,59 @@ input::placeholder{color:#5d6e80;}
     try { barre(); } catch (e) { /* démarrage : barre pas encore prête */ }
   }
 
+  var p2pUiFrame = null;
+  function programmerMiseAJourCrise() {
+    if (p2pUiFrame != null) return;
+    var run = function(){
+      p2pUiFrame = null;
+      try { actualiserCriseTempsReel(); } catch (e) {}
+    };
+    if (window.requestAnimationFrame) p2pUiFrame = requestAnimationFrame(run);
+    else p2pUiFrame = setTimeout(run, 50);
+  }
   function p2pSetStatus() {
     rafraichirBarre();
     try {
       if (ecranCourant === 'hub') rendreHub();
-      else if (ecranCourant === 'crise') rendreCrise();
+      else if (ecranCourant === 'crise') programmerMiseAJourCrise();
       else if (ecranCourant === 'transmission') rendreTransmissionAttente();
     } catch (e) { /* rendu non critique */ }
+  }
+
+  function actualiserCriseTempsReel() {
+    if (ecranCourant !== 'crise' || !cr) return;
+    // Ne jamais reconstruire tout l'écran pendant qu'un joueur manipule ses choix.
+    // On met uniquement à jour l'état de la manche et les sélections distantes.
+    try {
+      var meta = roundStateMeta();
+      var turn = document.querySelector('#ecran-crise .boree-turnline');
+      if (turn) {
+        turn.className = 'boree-turnline ' + meta.cls;
+        var strong = turn.querySelector('strong');
+        var span = turn.querySelector('span');
+        if (strong) strong.textContent = meta.label;
+        if (span) span.textContent = meta.text;
+      }
+      var submit = document.querySelector('#ecran-crise .boree-decision-submit');
+      if (submit) {
+        submit.disabled = !!round.localSubmitted;
+        submit.textContent = round.localSubmitted ? 'Décision verrouillée' : (net.connected && save.p2pRole !== 'demo' ? 'Valider ma décision' : 'Valider et transmettre');
+      }
+      synchroniserChoixDistantUI();
+    } catch (e) { /* rendu léger non critique */ }
+  }
+
+  function synchroniserChoixDistantUI() {
+    if (ecranCourant !== 'crise' || !cr || !round.remoteDec) return;
+    var nodes = document.querySelectorAll('#ecran-crise [data-round-index][data-round-value]');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var idx = parseInt(el.getAttribute('data-round-index'), 10);
+      var v = parseInt(el.getAttribute('data-round-value'), 10);
+      if (!Number.isFinite(idx) || !Number.isFinite(v)) continue;
+      if (roleForIndex(cr, idx, save.poste)) continue;
+      el.setAttribute('aria-pressed', String(round.remoteDec[idx] === v));
+    }
   }
 
   function p2pSend(msg) {
@@ -2910,7 +2959,7 @@ input::placeholder{color:#5d6e80;}
       var inferredRole = msg.poste && msg.poste !== save.poste ? msg.poste : (net.remotePoste || posteOppose(save.poste));
       if (net.role === 'host' && inferredRole && inferredRole !== save.poste) net.remotePoste = inferredRole;
       if (!msg.poste || !inferredRole || msg.poste === save.poste || msg.poste !== inferredRole || !appliquerBrouillonDistant(msg.values, inferredRole, msg.key)) return;
-      p2pSetStatus();
+      programmerMiseAJourCrise();
       return;
     }
 
@@ -2926,21 +2975,21 @@ input::placeholder{color:#5d6e80;}
       p2pSend({ type: 'submit_ack', key: round.key, hostReady: !!round.localSubmitted, guestReady: true });
       p2pSend({ type: 'round_status', key: round.key, hostReady: !!round.localSubmitted, guestReady: true });
       if (round.localSubmitted && round.remoteSubmitted) roundResolveHost();
-      else p2pSetStatus();
+      else actualiserCriseTempsReel();
       return;
     }
 
     if (msg.type === 'submit_ack' && net.role === 'guest') {
       if (!cr || msg.key !== roundKey()) return;
       round.remoteSubmitted = !!msg.hostReady;
-      p2pSetStatus();
+      programmerMiseAJourCrise();
       return;
     }
 
     if (msg.type === 'round_status' && net.role === 'guest') {
       if (!cr || msg.key !== roundKey()) return;
       round.remoteSubmitted = !!msg.hostReady;
-      p2pSetStatus();
+      programmerMiseAJourCrise();
       return;
     }
 
@@ -3971,7 +4020,8 @@ input::placeholder{color:#5d6e80;}
     var cols = valeurs.length <= 4 ? valeurs.length : 3;
     var wrap = H('div', { class: 'segments', style: 'grid-template-columns:repeat(' + cols + ',1fr)' });
     valeurs.forEach(function (v, i) {
-      var b = H('button', { type: 'button', 'aria-pressed': String(i === courant), onclick: function () { onset(i); } }, v);
+      var attrs = { type: 'button', 'aria-pressed': String(i === courant), onclick: function () { onset(i); }, 'data-round-value': String(i) };
+      var b = H('button', attrs, v);
       wrap.appendChild(b);
     });
     return wrap;
@@ -3994,13 +4044,44 @@ input::placeholder{color:#5d6e80;}
       if (roleForIndex(cr, i, save.poste)) return round.localDec ? round.localDec[i] : dec[i];
       return round.remoteDec ? round.remoteDec[i] : (round.localDec ? round.localDec[i] : dec[i]);
     }
+    var draftTimer = null;
+    function mettreAJourChoixLocalUI(i, v) {
+      try {
+        var nodes = document.querySelectorAll('#ecran-crise [data-round-index=\"' + String(i) + '\"][data-round-value]');
+        for (var n = 0; n < nodes.length; n++) {
+          var el = nodes[n];
+          el.setAttribute('aria-pressed', String(parseInt(el.getAttribute('data-round-value'),10) === v));
+        }
+        if (cr && cr.type === 'thermique' && save.poste === 'tech') {
+          var meta = document.querySelectorAll('#ecran-crise .boree-choice-meta[data-round-index=\"' + String(i) + '\"]')[0];
+          if (meta) {
+            var mod = cr.mods[i];
+            meta.textContent = cr.temps[mod.id][v] + '° · ' + cr.cout[mod.id][v].toFixed(1) + ' kW';
+          }
+          var total = 0;
+          for (var j = 0; j < cr.mods.length; j++) total += cr.cout[cr.mods[j].id][val(j)];
+          var summary = document.querySelector('#ecran-crise .boree-load-summary');
+          if (summary) {
+            var over = total > cr.budget + 1e-9;
+            summary.textContent = 'Charge demandée : ' + total.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (over ? 'le groupe va décrocher.' : 'dans les marges.');
+            summary.style.color = over ? 'var(--grave)' : 'var(--sourd)';
+          }
+        }
+      } catch (e) {}
+    }
     function setVal(i, v) {
       if (!editable(i)) return;
       round.localDec[i] = v;
       dec = round.localDec;
-      redessine();
+      mettreAJourChoixLocalUI(i, v);
       if (net.connected && save.p2pRole !== 'demo') {
-        p2pSend({ type:'draft', key:round.key, poste:save.poste, values:roundSubmitValues() });
+        try { if (draftTimer) clearTimeout(draftTimer); } catch (e) {}
+        draftTimer = setTimeout(function(){
+          draftTimer = null;
+          if (net.connected && round.key === roundKey() && !round.localSubmitted) {
+            p2pSend({ type:'draft', key:round.key, poste:save.poste, values:roundSubmitValues() });
+          }
+        }, 120);
       }
     }
     function lockNote(i, label) {
@@ -4008,6 +4089,7 @@ input::placeholder{color:#5d6e80;}
     }
     function segmentsOwned(labels, idx) {
       var seg = segments(labels, val(idx), function (v) { setVal(idx, v); });
+      seg.querySelectorAll('button').forEach(function (b) { b.setAttribute('data-round-index', String(idx)); });
       if (!editable(idx)) seg.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
       return seg;
     }
@@ -4019,7 +4101,7 @@ input::placeholder{color:#5d6e80;}
         corps.appendChild(H('div', { class: 'etiquette', text: 'Régime de chauffage' }));
         cr.mods.forEach(function (m, i) {
           corps.appendChild(H('div', { class: 'ligne-dec' },
-            H('div', { class: 'quoi' }, H('b', { text: m.nom }), save.poste === 'tech' ? H('span', { text: cr.temps[m.id][val(i)] + '° · ' + cr.cout[m.id][val(i)].toFixed(1) + ' kW' }) : null),
+            H('div', { class: 'quoi' }, H('b', { text: m.nom }), save.poste === 'tech' ? H('span', { class:'boree-choice-meta', 'data-round-index':String(i), text: cr.temps[m.id][val(i)] + '° · ' + cr.cout[m.id][val(i)].toFixed(1) + ' kW' }) : null),
             segmentsOwned(['Purgé', 'Veilleuse', 'Partiel', 'Plein'], i),
             lockNote(i, 'Chauffage')
           ));
@@ -4028,7 +4110,7 @@ input::placeholder{color:#5d6e80;}
           var conso = 0;
           cr.mods.forEach(function (m, i) { conso += cr.cout[m.id][val(i)]; });
           var sur = conso > cr.budget + 1e-9;
-          corps.appendChild(H('div', { class: 'petit', style: 'margin-top:10px;color:' + (sur ? 'var(--grave)' : 'var(--sourd)'), text: 'Charge demandée : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (sur ? 'le groupe va décrocher.' : 'dans les marges.') }));
+          corps.appendChild(H('div', { class: 'petit boree-load-summary', style: 'margin-top:10px;color:' + (sur ? 'var(--grave)' : 'var(--sourd)'), text: 'Charge demandée : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (sur ? 'le groupe va décrocher.' : 'dans les marges.') }));
         }
         corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:16px', text: 'Où dort chacun' }));
         cr.eq.forEach(function (c, j) {
@@ -4042,22 +4124,22 @@ input::placeholder{color:#5d6e80;}
       } else if (cr.type === 'diagnostic') {
         corps.appendChild(H('div', { class: 'etiquette', text: 'Cause retenue' }));
         var l1 = H('div', { class: 'choix' });
-        B.CAUSES.forEach(function (c, i) { l1.appendChild(H('button', { type: 'button', 'aria-pressed': String(val(0) === i), disabled: !editable(0), onclick: function () { setVal(0, i); } }, H('b', { text: c.nom }))); });
+        B.CAUSES.forEach(function (c, i) { l1.appendChild(H('button', { type: 'button', 'data-round-index':'0', 'data-round-value':String(i), 'aria-pressed': String(val(0) === i), disabled: !editable(0), onclick: function () { setVal(0, i); } }, H('b', { text: c.nom }))); });
         corps.appendChild(l1); corps.appendChild(lockNote(0, 'Hypothèse'));
         if(cr.skillClueTech&&save.poste==='tech') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · lecture vibratoire'}),H('span',{text:cr.skillClueTech})));
         if(cr.skillClueTech2&&save.poste==='tech') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · diagnostic différentiel'}),H('span',{text:cr.skillClueTech2})));
         if(cr.skillClueCrew&&save.poste==='equipage') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · diagnostic clinique'}),H('span',{text:cr.skillClueCrew})));
         corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:16px', text: 'Intervention' }));
         var l2 = H('div', { class: 'choix' });
-        B.FIXES.forEach(function (f, i) { l2.appendChild(H('button', { type: 'button', 'aria-pressed': String(val(1) === i), disabled: !editable(1), onclick: function () { setVal(1, i); } }, H('b', { text: f.nom }), i === 5 ? H('i', { text: 'Soulage sans régler. La cause reviendra, et en attendant elle continue d’agir.' }) : null)); });
+        B.FIXES.forEach(function (f, i) { l2.appendChild(H('button', { type: 'button', 'data-round-index':'1', 'data-round-value':String(i), 'aria-pressed': String(val(1) === i), disabled: !editable(1), onclick: function () { setVal(1, i); } }, H('b', { text: f.nom }), i === 5 ? H('i', { text: 'Soulage sans régler. La cause reviendra, et en attendant elle continue d’agir.' }) : null)); });
         corps.appendChild(l2); corps.appendChild(lockNote(1, 'Intervention'));
       } else if (cr.type === 'evenement') {
         corps.appendChild(H('div',{class:'etiquette',text:'Poste technique'}));
-        corps.appendChild(H('div',{class:'choix'},cr.techChoices.map(function(x,i){return H('button',{type:'button','aria-pressed':String(val(0)===i),disabled:!editable(0),onclick:function(){setVal(0,i);}},H('b',{text:x}));})));
+        corps.appendChild(H('div',{class:'choix'},cr.techChoices.map(function(x,i){return H('button',{type:'button','data-round-index':'0','data-round-value':String(i),'aria-pressed':String(val(0)===i),disabled:!editable(0),onclick:function(){setVal(0,i);}},H('b',{text:x}));})));
         if(cr.skillClueTech&&save.poste==='tech') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · expertise ingénierie'}),H('span',{text:cr.skillClueTech})));
         corps.appendChild(lockNote(0,'Choix technique'));
         corps.appendChild(H('div',{class:'etiquette',style:'margin-top:16px',text:'Poste équipage'}));
-        corps.appendChild(H('div',{class:'choix'},cr.crewChoices.map(function(x,i){return H('button',{type:'button','aria-pressed':String(val(1)===i),disabled:!editable(1),onclick:function(){setVal(1,i);}},H('b',{text:x}));})));
+        corps.appendChild(H('div',{class:'choix'},cr.crewChoices.map(function(x,i){return H('button',{type:'button','data-round-index':'1','data-round-value':String(i),'aria-pressed':String(val(1)===i),disabled:!editable(1),onclick:function(){setVal(1,i);}},H('b',{text:x}));})));
         if(cr.skillClueCrew&&save.poste==='equipage') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · expertise humaine'}),H('span',{text:cr.skillClueCrew})));
         corps.appendChild(lockNote(1,'Choix équipage'));
       } else {
@@ -4081,11 +4163,11 @@ input::placeholder{color:#5d6e80;}
       var iSem = cr.widths.length - 1;
       corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:18px', text: 'Et la semaine qui vient' }));
       var l3 = H('div', { class: 'choix' });
-      (cr.chantiers || []).forEach(function (o, i) { l3.appendChild(H('button', { type: 'button', 'aria-pressed': String(val(iSem) === i), disabled: !editable(iSem), onclick: function () { setVal(iSem, i); } }, H('b', { text: o.nom }), H('i', { text: o.desc }))); });
+      (cr.chantiers || []).forEach(function (o, i) { l3.appendChild(H('button', { type: 'button', 'data-round-index':String(iSem), 'data-round-value':String(i), 'aria-pressed': String(val(iSem) === i), disabled: !editable(iSem), onclick: function () { setVal(iSem, i); } }, H('b', { text: o.nom }), H('i', { text: o.desc }))); });
       corps.appendChild(l3); corps.appendChild(lockNote(iSem, 'Plan de semaine'));
     }
     redessine();
-    wrap.appendChild(H('button', { class: 'btn-large btn-primaire', style: 'margin-top:6px', disabled: !!round.localSubmitted, onclick: validerDecision }, round.localSubmitted ? 'Décision verrouillée' : (net.connected && save.p2pRole !== 'demo' ? 'Valider ma décision' : 'Valider et transmettre')));
+    wrap.appendChild(H('button', { class: 'btn-large btn-primaire boree-decision-submit', style: 'margin-top:6px', disabled: !!round.localSubmitted, onclick: validerDecision }, round.localSubmitted ? 'Décision verrouillée' : (net.connected && save.p2pRole !== 'demo' ? 'Valider ma décision' : 'Valider et transmettre')));
     wrap.appendChild(H('div', { class: 'note-regle', text: net.connected && save.p2pRole !== 'demo' ? 'La résolution se déclenche automatiquement quand les deux postes ont verrouillé leur partie.' : 'Connexion absente : le transport manuel reste disponible en secours.' }));
     return wrap;
   }
