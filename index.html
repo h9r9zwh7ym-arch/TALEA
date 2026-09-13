@@ -5,9 +5,156 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Borée — un jeu de coopération asymétrique à deux, sur deux téléphones. Une station polaire, un hiver à passer.">
 <meta name="theme-color" content="#070a0f">
-<style>html,body{margin:0;background:#070a0f}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>html,body{margin:0;background:#070a0f}img{max-width:100%}[hidden]{display:none!important}.talent-grid{display:grid;position:relative;grid-template-columns:1fr 1fr;gap:8px}.talent{appearance:none;text-align:left;border:1px solid var(--ligne);background:var(--fond);border-radius:10px;padding:11px;display:flex;flex-direction:column;gap:5px;min-height:112px;color:var(--encre);cursor:pointer}.talent-grid:before{content:"";position:absolute;left:50%;top:8px;bottom:8px;border-left:1px solid var(--ligne);opacity:.7}.talent{position:relative}.talent b{font-size:13px}.talent span{font-family:var(--mono);font-size:9px;color:var(--sourd);text-transform:uppercase;letter-spacing:.08em}.talent i{font-style:normal;font-size:11px;line-height:1.35;color:var(--sourd)}.talent.owned{border-color:var(--givre)}.talent.locked{opacity:.42}.indice-metier{margin-top:10px;padding:10px 12px;border-left:2px solid var(--givre);background:rgba(255,255,255,.025);display:flex;flex-direction:column;gap:3px}.indice-metier b{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em}.indice-metier span{font-size:12px;line-height:1.4;color:var(--sourd)}@media(max-width:370px){.talent-grid{grid-template-columns:1fr}}</style>
+<style id="boree-polish3">
+:root{--focus-ring:0 0 0 2px rgba(84,208,226,.28),0 0 0 4px rgba(84,208,226,.10)}
+button,.menu-item,.resume-card,.dossier-tabs button,.segments button,.btn-large,.btn-discret{transition:transform .14s ease,border-color .14s ease,background-color .14s ease,color .14s ease,box-shadow .14s ease,opacity .14s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button:focus-visible,.menu-item:focus-visible,.resume-card:focus-visible,.dossier-tabs button:focus-visible,.segments button:focus-visible,.btn-large:focus-visible,.btn-discret:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+button:not(:disabled):active,.menu-item:not(:disabled):active,.resume-card:not(:disabled):active,.dossier-tabs button:not(:disabled):active,.segments button:not(:disabled):active,.btn-large:not(:disabled):active,.btn-discret:not(:disabled):active{transform:translateY(1px)}
+button:disabled,.menu-item:disabled,.resume-card:disabled,.dossier-tabs button:disabled,.segments button:disabled,.btn-large:disabled,.btn-discret:disabled{cursor:not-allowed;opacity:.48}
+.segments button[aria-pressed="true"]{box-shadow:inset 0 0 0 1px currentColor,0 0 0 1px rgba(255,255,255,.03);transform:translateY(-1px)}
+.jauge .barre{overflow:hidden;position:relative}.jauge .barre i{display:block;min-width:2px;transition:width .35s cubic-bezier(.2,.8,.2,1)}
+.caisson,.fiche,.resume-card,.mod-bloc,.section-titre{transition:border-color .18s ease,background-color .18s ease,box-shadow .18s ease}.resume-card:hover,.menu-item:hover,.dossier-tabs button:hover,.segments button:hover{border-color:var(--trait-vif,#2a3949)}
+.caisson.accentue{box-shadow:inset 2px 0 0 var(--accent),0 8px 24px rgba(0,0,0,.10)}
+.boree-pressed{filter:brightness(1.05)}.boree-actioned{box-shadow:0 0 0 1px rgba(255,255,255,.05)}
+
+/* ============================================================
+   POLISH 11 — DOSSIER
+   ============================================================ */
+.dossier-head{position:relative}
+.dossier-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0 8px}
+.dossier-stat{border:1px solid var(--trait);background:linear-gradient(180deg,var(--caisson-clair),var(--caisson));padding:10px 9px;min-height:62px}
+.dossier-stat .lab{display:block;color:var(--sourd);font:9px var(--mono);text-transform:uppercase;letter-spacing:.08em}
+.dossier-stat b{display:block;margin-top:5px;color:var(--givre);font:17px var(--mono)}
+.dossier-stat.alert b{color:var(--alerte)}
+.dossier-stat.good b{color:var(--bon)}
+.dossier-alerts{border-left:2px solid var(--accent);background:var(--accent-faible);padding:10px 12px;margin-bottom:10px}
+.dossier-alerts .titre{font:10px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:4px}
+.dossier-alerts ul{margin:0;padding-left:17px;color:var(--givre-doux);font-size:12px}
+.dossier-alerts li+li{margin-top:3px}
+.dossier-tabs{position:sticky;top:0;z-index:8;padding:5px 0;background:linear-gradient(var(--sol),rgba(7,10,15,.94));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.dossier-tab-count{opacity:.65;margin-left:4px}
+.dossier-panel-title{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:10px 0 6px}
+.dossier-panel-title b{font-family:var(--display);font-size:18px;text-transform:uppercase}
+.dossier-panel-title span{font:9px var(--mono);color:var(--sourd);text-transform:uppercase}
+.dossier-hint{margin-bottom:10px}
+@media(max-width:560px){.dossier-summary{grid-template-columns:repeat(2,1fr)}.dossier-tabs{top:0}.dossier-stat{min-height:58px}}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+@media(max-width:560px){#app{padding-inline:14px}.btn-large{min-height:50px}.segments button{min-height:44px}.dossier-tabs button,.nav-jeu button{min-height:46px}.menu-item{min-height:56px}}
+</style>
+
+
+<style id="boree-polish7-css">
+.boree-feedback-pulse{animation:boreeFeedbackPulse .32s ease-out}
+.boree-feedback-critical{animation:boreeCritical .42s ease-out}
+.boree-audio-toggle{display:flex!important;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-top:8px;border:1px solid var(--trait);background:transparent;color:var(--givre-doux);padding:11px 12px;font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.boree-audio-toggle span:last-child{color:var(--sourd);font-size:10px}
+.boree-audio-toggle:hover{border-color:var(--accent);color:var(--givre)}
+[data-screen="crise"] .boree-crise-status.active,
+[data-screen="crise"] .boree-crise-status.your-turn{box-shadow:inset 2px 0 0 var(--accent),0 0 0 1px rgba(228,180,76,.05)}
+[data-screen="transmission"] .boree-wait-state{box-shadow:inset 2px 0 0 var(--accent),0 8px 30px rgba(0,0,0,.18)}
+@keyframes boreeFeedbackPulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.16)}100%{box-shadow:0 0 0 10px rgba(255,255,255,0)}}
+@keyframes boreeCritical{0%{box-shadow:inset 2px 0 0 var(--grave),0 0 0 0 rgba(217,96,74,.16)}55%{box-shadow:inset 2px 0 0 var(--grave),0 0 0 5px rgba(217,96,74,.08)}100%{box-shadow:inset 2px 0 0 var(--grave),0 0 0 0 rgba(217,96,74,0)}}
+@media(prefers-reduced-motion:reduce){.boree-feedback-pulse,.boree-feedback-critical{animation:none!important}}
+</style>
+
+<style id="boree-finale-polish">
+/* ============================================================
+   BORÉE — FINAL POLISH
+   Direction artistique finale : station scientifique polaire,
+   interface d'instrumentation, profondeur et calme sous tension.
+   Visuel uniquement : aucun moteur/règle/P2P/sauvegarde modifié.
+   ============================================================ */
+:root{
+  --glass:rgba(12,18,25,.82);
+  --glass-hi:rgba(19,28,38,.92);
+  --line-soft:rgba(102,125,146,.22);
+  --line-bright:rgba(157,185,205,.34);
+  --shadow-deep:0 22px 70px rgba(0,0,0,.46);
+}
+html,body{min-height:100%;background:radial-gradient(900px 520px at 50% -120px,rgba(76,141,166,.11),transparent 66%),radial-gradient(560px 340px at 100% 40%,rgba(37,78,100,.06),transparent 70%),var(--sol)}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.15;background-image:linear-gradient(rgba(205,217,229,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(205,217,229,.035) 1px,transparent 1px);background-size:32px 32px;mask-image:linear-gradient(to bottom,black 0%,transparent 88%)}
+#app{position:relative}
+#app:before{content:"";position:fixed;left:50%;top:0;transform:translateX(-50%);width:min(100vw,760px);height:100vh;pointer-events:none;z-index:-1;background:radial-gradient(ellipse at 50% 8%,rgba(103,173,196,.055),transparent 44%),linear-gradient(90deg,transparent 0 8%,rgba(255,255,255,.012) 8.1%,transparent 8.3% 91.7%,rgba(255,255,255,.012) 91.8%,transparent 92%)}
+#barre{position:sticky;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding-top:max(12px,env(safe-area-inset-top));min-height:58px;border-bottom-color:var(--line-soft)}
+#barre:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.34;pointer-events:none}
+#barre .nom{letter-spacing:.19em;text-shadow:0 0 22px color-mix(in srgb,var(--accent) 18%,transparent)}
+#barre .poste{box-shadow:inset 0 0 12px color-mix(in srgb,var(--accent) 8%,transparent)}
+#barre .jour{line-height:1.2}
+.nav-jeu{border-color:var(--line-bright);background:rgba(8,12,17,.92);box-shadow:0 18px 55px rgba(0,0,0,.48),0 0 0 1px rgba(255,255,255,.02) inset}
+.nav-jeu button{position:relative;overflow:hidden}
+.nav-jeu button:after{content:"";position:absolute;inset:5px;border:1px solid transparent;pointer-events:none;transition:border-color .18s ease}
+.nav-jeu button.active:after{border-color:color-mix(in srgb,var(--accent) 22%,transparent)}
+.ecran.actif{animation:boreeScreenIn .28s ease-out both}
+.ecran.actif:before{content:"";display:block;height:2px;margin:0 0 12px;background:linear-gradient(90deg,var(--accent),transparent 72%);opacity:.36}
+@keyframes boreeScreenIn{from{opacity:.76;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+.hub-hero,.action-principale,.caisson,.fiche,.resume-card,.talent,.schema,.jauge{position:relative;overflow:hidden;background-image:linear-gradient(135deg,rgba(255,255,255,.025),transparent 42%)}
+.hub-hero:after,.action-principale:after,.caisson:after,.fiche:after,.resume-card:after,.talent:after,.jauge:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(120deg,transparent 0 42%,rgba(255,255,255,.022) 50%,transparent 58%);transform:translateX(-120%);opacity:0}
+.hub-hero:hover:after,.action-principale:hover:after,.caisson:hover:after,.fiche:hover:after,.resume-card:hover:after,.talent:hover:after,.jauge:hover:after{opacity:1;animation:boreeSheen .9s ease-out}
+@keyframes boreeSheen{to{transform:translateX(120%)}}
+.action-principale{box-shadow:0 10px 34px rgba(0,0,0,.22),inset 0 0 24px rgba(255,255,255,.018)}
+.action-principale .btn-large{min-width:150px}
+.choix{counter-reset:choice}
+.choix button{position:relative;padding-left:47px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.015)}
+.choix button:before{counter-increment:choice;content:counter(choice,decimal-leading-zero);position:absolute;left:14px;top:13px;color:var(--sourd);font:10px var(--mono);letter-spacing:.08em}
+.choix button[aria-pressed="true"]:before{color:var(--accent)}
+.choix button[aria-pressed="true"]{box-shadow:inset 2px 0 0 var(--accent),0 0 0 1px color-mix(in srgb,var(--accent) 15%,transparent)}
+.segments button{position:relative;overflow:hidden}
+.segments button[aria-pressed="true"]:after{content:"";position:absolute;left:7px;right:7px;bottom:4px;height:1px;background:var(--accent);box-shadow:0 0 8px color-mix(in srgb,var(--accent) 45%,transparent)}
+.jauge{min-height:62px;padding-top:12px}
+.jauge .barre{background:rgba(205,217,229,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+.jauge .barre:after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 9%,rgba(255,255,255,.08) 9.2% 9.5%,transparent 9.7% 20%);pointer-events:none}
+.fiche{box-shadow:0 9px 30px rgba(0,0,0,.18)}
+.fiche:hover{transform:translateY(-1px)}
+.dossier-stat{box-shadow:inset 0 0 0 1px rgba(255,255,255,.015),0 7px 22px rgba(0,0,0,.16)}
+.dossier-stat b{text-shadow:0 0 16px rgba(205,217,229,.07)}
+.dossier-alerts{box-shadow:inset 0 0 0 1px rgba(255,255,255,.018),0 8px 25px rgba(0,0,0,.18)}
+.talent{min-height:120px}
+.talent.owned{box-shadow:inset 2px 0 0 var(--bon),0 8px 22px rgba(0,0,0,.14)}
+.talent:not(.owned):not(.locked):hover{box-shadow:inset 2px 0 0 var(--accent),0 12px 28px rgba(0,0,0,.24)}
+.resume-card{cursor:pointer}
+.resume-card b{letter-spacing:.02em}
+.menu-panneau{background:linear-gradient(180deg,rgba(14,20,27,.98),rgba(8,12,17,.98));box-shadow:-26px 0 70px rgba(0,0,0,.46)}
+.menu-item{box-shadow:inset 0 0 0 1px rgba(255,255,255,.012)}
+.intro{box-shadow:0 30px 90px rgba(0,0,0,.54),0 0 0 1px rgba(255,255,255,.015) inset}
+.intro-title{text-shadow:0 8px 28px rgba(0,0,0,.5)}
+.intro-chip{box-shadow:inset 0 0 0 1px rgba(255,255,255,.018)}
+.resolution-scene .recit{position:relative}
+.resolution-scene .recit:before{content:"RAPPORT DE MISSION";display:block;margin-bottom:9px;color:var(--accent);font:9px var(--mono);letter-spacing:.16em}
+html[data-screen="crise"] .ecran.actif:after{background:radial-gradient(ellipse at 50% 0,rgba(228,180,76,.10),transparent 70%)}
+html[data-screen="resolution"] .ecran.actif:after{background:radial-gradient(ellipse at 50% 0,rgba(121,199,138,.085),transparent 70%)}
+html[data-screen="hub"] .hub-hero{box-shadow:0 18px 52px rgba(0,0,0,.28),inset 0 0 32px rgba(91,156,179,.035)}
+html[data-screen="journal"] .journal-list{position:relative}
+html[data-screen="journal"] .journal-list:before{content:"";position:absolute;left:7px;top:0;bottom:0;width:1px;background:linear-gradient(var(--trait-vif),transparent)}
+html[data-screen="journal"] .entree{margin-left:12px}
+html[data-screen="journal"] .entree:after{content:"";position:absolute;left:-17px;top:17px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--sol),0 0 12px color-mix(in srgb,var(--accent) 35%,transparent)}
+.btn-primaire{box-shadow:0 10px 28px color-mix(in srgb,var(--accent) 11%,transparent),inset 0 0 20px rgba(255,255,255,.018)}
+.btn-primaire:hover{box-shadow:0 14px 34px color-mix(in srgb,var(--accent) 16%,transparent),inset 0 0 20px rgba(255,255,255,.025)}
+@media(max-width:560px){
+  body:before{background-size:26px 26px;opacity:.10}
+  #app{padding-inline:12px}
+  #barre{margin-inline:-12px;padding-inline:12px}
+  .hub-hero{padding:17px 14px}
+  .choix button{padding-left:44px}
+  .resume-card{min-height:82px}
+  .intro{min-height:calc(100svh - 34px)}
+}
+@media(min-width:900px){#app{max-width:620px}.ecran.actif{padding-inline:2px}}
+@media(prefers-reduced-motion:reduce){
+  .ecran.actif,.hub-hero:hover:after,.action-principale:hover:after,.caisson:hover:after,.fiche:hover:after,.resume-card:hover:after,.talent:hover:after,.jauge:hover:after{animation:none!important}
+  .ecran.actif{transform:none}
+}
+</style>
+
 <title>Borée</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Saira+Condensed:wght@600;700&display=swap">
+
+<style id="boree-polish12-css">
+.journal-head{display:flex;flex-direction:column;gap:2px}.journal-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.journal-chip{font:9px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--sourd);border:1px solid var(--trait);padding:5px 7px;background:rgba(255,255,255,.02)}.journal-filter{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0 10px}.journal-filter button{min-height:42px;border:1px solid var(--trait);background:var(--caisson);color:var(--givre-doux);font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.08em}.journal-filter button.active{border-color:var(--accent);color:var(--accent);background:var(--accent-faible)}.journal-list{display:flex;flex-direction:column;gap:8px}.journal-empty{padding:18px 14px;border:1px dashed var(--trait);color:var(--sourd);text-align:center}.entree.journal-important{border-left:2px solid var(--alerte);background:linear-gradient(90deg,rgba(228,180,76,.07),transparent 55%)}.journal-era{font:9px var(--mono);color:var(--sourd);text-transform:uppercase;letter-spacing:.12em;padding:12px 0 4px;border-bottom:1px solid var(--trait)}
+@media(max-width:560px){.journal-filter button{min-height:46px}}
+</style>
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 /* ============================================================
    BORÉE — un seul monde visuel : un écran d'instrument dans une
@@ -453,6 +600,55 @@ td .att { color: var(--alerte); }
 .puces li { margin-bottom: 5px; }
 .sep { height: 1px; background: var(--trait); }
 
+
+/* ---------- architecture UX ---------- */
+#app{padding-bottom:92px}
+#barre{min-height:48px}
+#barre .nom{cursor:pointer}
+.barre-action{margin-left:4px;border:1px solid var(--trait);background:transparent;color:var(--givre-doux);width:32px;height:30px;border-radius:3px;font-size:18px;cursor:pointer}
+.barre-action:hover,.barre-action:focus-visible{border-color:var(--accent);color:var(--givre);outline:none}
+.nav-jeu{display:none;position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(calc(100% - 20px),560px);z-index:30;background:rgba(9,13,18,.96);border:1px solid var(--trait-vif);box-shadow:0 12px 35px rgba(0,0,0,.38);backdrop-filter:blur(12px);padding:6px;grid-template-columns:repeat(4,1fr);gap:5px}
+.nav-jeu.visible{display:grid}
+.nav-jeu button{appearance:none;border:0;background:transparent;color:var(--sourd);min-height:50px;padding:5px 3px;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;cursor:pointer}
+.nav-jeu button strong{font-family:var(--corps);font-size:12px;letter-spacing:0;color:var(--givre-doux);font-weight:600}
+.nav-jeu button.active{background:var(--accent-faible);color:var(--accent)}
+.nav-jeu button.active strong{color:var(--givre)}
+.nav-badge{font-size:9px;color:var(--accent);margin-left:2px}
+.menu-jeu{position:fixed;inset:0;z-index:50;pointer-events:none}
+.menu-jeu.open{pointer-events:auto}
+.menu-voile{position:absolute;inset:0;background:rgba(0,0,0,.62);opacity:0;transition:opacity .18s}
+.menu-jeu.open .menu-voile{opacity:1}
+.menu-panneau{position:absolute;right:0;top:0;bottom:0;width:min(88vw,390px);background:var(--caisson);border-left:1px solid var(--trait-vif);padding:20px 18px 28px;transform:translateX(105%);transition:transform .22s ease;overflow:auto;box-shadow:-18px 0 50px rgba(0,0,0,.35)}
+.menu-jeu.open .menu-panneau{transform:translateX(0)}
+.menu-tete{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--trait);margin-bottom:12px}
+.menu-tete strong{font-family:var(--display);font-size:26px;text-transform:uppercase;letter-spacing:.05em}
+.menu-fermer{border:1px solid var(--trait);background:transparent;color:var(--givre);width:38px;height:38px;font-size:24px;cursor:pointer}
+.menu-section{padding:10px 0 4px;color:var(--sourd);font:10px var(--mono);text-transform:uppercase;letter-spacing:.14em}
+.menu-item{width:100%;border:1px solid var(--trait);background:var(--sol-haut);color:var(--givre);padding:13px 12px;margin:5px 0;text-align:left;cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.menu-item:hover,.menu-item:focus-visible{border-color:var(--accent);outline:none}
+.menu-item small{color:var(--sourd);font:10px var(--mono)}
+.ux-breadcrumb{display:flex;align-items:center;gap:7px;margin-bottom:10px;color:var(--sourd);font:10px var(--mono);text-transform:uppercase;letter-spacing:.1em}
+.ux-breadcrumb button{border:0;background:none;color:var(--accent);font:inherit;padding:0;cursor:pointer}
+.hub-hero{border:1px solid var(--trait-vif);background:linear-gradient(135deg,var(--caisson-clair),var(--caisson));padding:16px}
+.hub-hero .titre-bloc{font-size:25px}
+.hub-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
+.hub-meta>div{border-top:1px solid var(--trait);padding-top:8px}
+.hub-meta b{display:block;font:14px var(--mono);color:var(--givre)}
+.hub-meta span{display:block;font:9px var(--mono);text-transform:uppercase;color:var(--sourd);letter-spacing:.08em}
+.action-principale{border:1px solid var(--accent);background:var(--accent-faible);padding:15px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.action-principale .btn-large{margin:0;white-space:nowrap}
+.section-titre{display:flex;align-items:end;justify-content:space-between;border-bottom:1px solid var(--trait);padding-bottom:7px;margin-top:8px}
+.section-titre .etiquette{margin:0}
+.section-titre button{border:0;background:none;color:var(--accent);font:10px var(--mono);text-transform:uppercase;cursor:pointer}
+.resume-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.resume-card{background:var(--caisson);border:1px solid var(--trait);padding:12px;min-height:74px}
+.resume-card b{display:block;font-family:var(--display);font-size:19px;text-transform:uppercase}
+.resume-card span{display:block;color:var(--sourd);font-size:11px;margin-top:2px}
+.dossier-tabs{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}
+.dossier-tabs button{border:1px solid var(--trait);background:var(--caisson);color:var(--givre-doux);padding:10px;font:10px var(--mono);text-transform:uppercase;cursor:pointer}
+.dossier-tabs button.active{border-color:var(--accent);color:var(--givre);background:var(--accent-faible)}
+@media(max-width:380px){.nav-jeu{bottom:7px}.nav-jeu button{min-height:46px}.hub-meta{grid-template-columns:1fr 1fr}.hub-meta>div:last-child{grid-column:1/-1}.resume-grid{grid-template-columns:1fr}}
+
 @media (max-width: 380px) {
   .jauges { grid-template-columns: 1fr; }
   #barre .nom { font-size: 21px; }
@@ -462,24 +658,361 @@ td .att { color: var(--alerte); }
   * { animation: none !important; transition: none !important; }
   #neige { display: none; }
 }
+\n/* ============================================================\n   INTRODUCTION — arrivée scientifique à Borée\n   ============================================================ */\n.intro-shell{min-height:calc(100vh - 76px);display:flex;align-items:center;justify-content:center;padding:18px 0 54px}\n.intro{width:100%;max-width:560px;position:relative;overflow:hidden;border:1px solid var(--trait);background:#080d13;min-height:620px;box-shadow:0 18px 70px rgba(0,0,0,.35)}\n.intro-scene{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .7s ease;display:flex;flex-direction:column;justify-content:flex-end}\n.intro-scene.active{opacity:1;pointer-events:auto}\n.intro-visual{position:absolute;inset:0;overflow:hidden;background:linear-gradient(#07101a,#0a1119 55%,#05080d)}\n.intro-visual:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,transparent 0 25%,rgba(0,0,0,.15) 55%,rgba(0,0,0,.68) 100%)}\n.intro-stars{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(220,235,245,.65) 0 1px,transparent 1.5px);background-size:83px 71px;opacity:.3;animation:introDrift 24s linear infinite}\n.intro-horizon{position:absolute;left:-10%;right:-10%;bottom:27%;height:26%;background:linear-gradient(145deg,transparent 0 29%,#d6e0e8 30% 33%,#91a3b3 34% 36%,transparent 37%),linear-gradient(12deg,#111b25 0 45%,transparent 46%);filter:drop-shadow(0 0 12px rgba(190,220,235,.12))}\n.intro-station{position:absolute;left:50%;bottom:23%;width:230px;height:120px;transform:translateX(-50%);background:#121b24;border:2px solid #526474;box-shadow:0 0 0 5px rgba(4,8,12,.7),0 0 30px rgba(117,190,218,.13);clip-path:polygon(9% 18%,78% 18%,92% 37%,92% 100%,0 100%,0 37%)}\n.intro-station:before{content:"";position:absolute;left:16%;right:12%;top:22%;height:17px;background:repeating-linear-gradient(90deg,#243341 0 18px,#5f7d8e 19px 23px,#18242f 24px 39px);box-shadow:0 29px 0 #0b1219}\n.intro-light{position:absolute;width:7px;height:7px;border-radius:50%;background:#9ee7f0;box-shadow:0 0 14px #9ee7f0;animation:introBlink 2.8s ease-in-out infinite}\n.intro-light.l1{left:20%;bottom:36%}.intro-light.l2{left:49%;bottom:31%;animation-delay:1.1s}.intro-light.l3{left:73%;bottom:39%;animation-delay:1.8s}\n.intro-antenna{position:absolute;left:76%;bottom:43%;width:2px;height:100px;background:#718494;transform:rotate(8deg);transform-origin:bottom}.intro-antenna:after{content:"";position:absolute;top:-4px;left:-8px;width:18px;height:18px;border:1px solid #718494;border-radius:50%}\n.intro-snow{position:absolute;inset:-20%;background-image:radial-gradient(circle,rgba(235,246,252,.75) 0 1px,transparent 1.7px);background-size:37px 49px;opacity:0;animation:introSnow 5s linear infinite}\n.intro-snow.heavy{opacity:.55;animation-duration:3.2s}\n.intro-panel{position:relative;z-index:3;margin:0;padding:32px 24px 22px;background:linear-gradient(transparent,rgba(3,7,11,.96) 22%);min-height:245px;display:flex;flex-direction:column;justify-content:flex-end}\n.intro-kicker{font:10px var(--mono);text-transform:uppercase;letter-spacing:.16em;color:var(--accent);margin-bottom:7px}\n.intro-title{font:clamp(30px,8vw,46px) var(--display);text-transform:uppercase;letter-spacing:.025em;line-height:.95;margin:0 0 11px;color:#eef6fb}\n.intro-text{font-size:15px;line-height:1.65;color:var(--givre-doux);margin:0;max-width:49ch}\n.intro-text strong{color:var(--givre)}\n.intro-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}\n.intro-chip{border:1px solid var(--trait-vif);background:rgba(13,18,24,.78);padding:7px 9px;font:9px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--givre-doux)}\n.intro-actions{position:relative;z-index:4;display:flex;gap:8px;padding:0 24px 24px;background:rgba(3,7,11,.96)}\n.intro-actions .btn-large{margin:0;flex:1}\n.intro-progress{position:absolute;z-index:5;top:14px;left:24px;right:24px;display:flex;gap:5px}\n.intro-dot{height:2px;flex:1;background:rgba(205,217,229,.18);transition:background .3s}\n.intro-dot.active{background:var(--accent)}\n.intro-credit{position:absolute;top:25px;right:24px;z-index:5;font:9px var(--mono);color:rgba(205,217,229,.45);text-transform:uppercase}\n@keyframes introDrift{from{transform:translateX(0)}to{transform:translateX(-83px)}}\n@keyframes introBlink{0%,100%{opacity:.35}50%{opacity:1}}\n@keyframes introSnow{from{transform:translate(0,-4%)}to{transform:translate(-8%,9%)}}\n@media(max-width:380px){.intro{min-height:580px}.intro-panel{padding:27px 18px 18px;min-height:235px}.intro-actions{padding:0 18px 18px}.intro-progress{left:18px;right:18px}.intro-credit{right:18px}.intro-station{width:190px}}\n@media(prefers-reduced-motion:reduce){.intro-stars,.intro-snow,.intro-light{animation:none}.intro-scene{transition:none}}\n
+
+/* ============================================================
+   POLISH 01 — instrument premium / tactile / mobile
+   Couche visuelle uniquement : aucun changement de logique.
+   ============================================================ */
+:root{
+  --ombre-profonde: rgba(0,0,0,.48);
+  --halo: rgba(84,208,226,.10);
+  --verre: rgba(13,18,24,.78);
+}
+body{
+  background:
+    radial-gradient(900px 520px at 50% -120px,rgba(45,73,91,.18),transparent 68%),
+    linear-gradient(180deg,#080d13 0%,var(--sol) 48%,#05080c 100%);
+}
+body:before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.28;
+  background-image:linear-gradient(rgba(205,217,229,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(205,217,229,.014) 1px,transparent 1px);
+  background-size:32px 32px;
+  mask-image:linear-gradient(to bottom,black,transparent 82%);
+}
+#app{padding-inline:16px;padding-bottom:calc(96px + env(safe-area-inset-bottom));}
+#barre{
+  margin-inline:-16px;padding-inline:16px;
+  background:linear-gradient(to bottom,rgba(7,10,15,.98) 64%,rgba(7,10,15,.78) 82%,transparent);
+  border-bottom-color:rgba(42,57,73,.72);
+  backdrop-filter:blur(8px);
+}
+#barre .nom{font-size:24px;text-shadow:0 0 22px rgba(205,217,229,.08)}
+#barre .poste{box-shadow:0 0 18px color-mix(in srgb,var(--accent) 12%,transparent)}
+.ecran.actif{animation:boreeIn .26s ease both}
+@keyframes boreeIn{from{opacity:.72;transform:translateY(5px)}to{opacity:1;transform:none}}
+.caisson,.fiche,.jauge,.resume-card,.talent,.schema,.hub-hero{
+  box-shadow:0 8px 26px var(--ombre-profonde);
+  transition:border-color .18s ease,background .18s ease,transform .18s ease,box-shadow .18s ease;
+}
+.caisson:hover,.fiche:hover,.resume-card:hover,.talent:not(.locked):hover{border-color:var(--trait-vif);box-shadow:0 10px 30px var(--ombre-profonde)}
+.hub-hero{
+  position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(19,26,35,.98),rgba(10,15,21,.98));
+}
+.hub-hero:after{
+  content:"";position:absolute;right:-45px;top:-65px;width:170px;height:170px;border-radius:50%;
+  border:1px solid rgba(84,208,226,.11);box-shadow:0 0 0 18px rgba(84,208,226,.018),0 0 70px rgba(84,208,226,.08);
+  pointer-events:none;
+}
+button{
+  min-height:44px;
+  border-radius:4px;
+  box-shadow:0 3px 12px rgba(0,0,0,.18);
+  -webkit-tap-highlight-color:transparent;
+  transition:border-color .16s ease,background .16s ease,color .16s ease,transform .08s ease,box-shadow .16s ease;
+}
+button:hover{box-shadow:0 5px 18px rgba(0,0,0,.25)}
+button:active{transform:translateY(1px);box-shadow:0 1px 7px rgba(0,0,0,.22)}
+.btn-large{min-height:52px;border-radius:5px;box-shadow:0 8px 22px rgba(0,0,0,.22)}
+.btn-primaire{box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 8px 28px color-mix(in srgb,var(--accent) 13%,transparent)}
+.btn-primaire:hover{filter:brightness(1.07);box-shadow:0 0 24px color-mix(in srgb,var(--accent) 15%,transparent),0 8px 28px rgba(0,0,0,.25)}
+.btn-discret{box-shadow:none}
+.action-principale{
+  border-radius:5px;
+  background:linear-gradient(90deg,var(--accent-faible),rgba(13,18,24,.55));
+  box-shadow:0 8px 28px rgba(0,0,0,.2);
+}
+.jauge .barre{height:4px;border-radius:999px;overflow:hidden;background:rgba(42,57,73,.8)}
+.jauge .barre i{border-radius:inherit;box-shadow:0 0 10px color-mix(in srgb,var(--accent) 30%,transparent)}
+.segments{gap:6px}
+.segments button{border-radius:4px;background:linear-gradient(180deg,var(--caisson-clair),var(--caisson));}
+.segments button[aria-pressed="true"]{
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent) inset,0 0 18px color-mix(in srgb,var(--accent) 10%,transparent);
+}
+.nav-jeu{
+  bottom:calc(10px + env(safe-area-inset-bottom));
+  width:min(calc(100% - 18px),560px);
+  padding:5px;
+  border-color:rgba(42,57,73,.92);
+  background:rgba(8,12,17,.90);
+  box-shadow:0 18px 50px rgba(0,0,0,.52),0 0 0 1px rgba(255,255,255,.02) inset;
+  backdrop-filter:blur(18px) saturate(120%);
+}
+.nav-jeu button{min-height:52px;border-radius:4px;position:relative;box-shadow:none}
+.nav-jeu button:after{content:"";position:absolute;left:22%;right:22%;bottom:3px;height:2px;background:var(--accent);transform:scaleX(0);transition:transform .18s ease;border-radius:2px}
+.nav-jeu button.active:after{transform:scaleX(1)}
+.nav-jeu button.active{box-shadow:0 0 20px color-mix(in srgb,var(--accent) 7%,transparent) inset}
+.menu-panneau{
+  background:linear-gradient(180deg,rgba(14,19,26,.98),rgba(8,12,17,.99));
+  box-shadow:-24px 0 70px rgba(0,0,0,.55);
+  padding-top:calc(20px + env(safe-area-inset-top));
+  padding-bottom:calc(28px + env(safe-area-inset-bottom));
+}
+.menu-item{min-height:50px;border-radius:4px;background:linear-gradient(180deg,var(--sol-haut),rgba(10,15,21,.96));}
+.menu-item:hover{transform:translateX(-2px);box-shadow:0 6px 20px rgba(0,0,0,.22)}
+.intro{
+  box-shadow:0 24px 90px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.018) inset;
+  border-color:rgba(82,100,116,.75);
+}
+.intro-actions .btn-large{box-shadow:0 8px 24px rgba(0,0,0,.28)}
+/* Zones tactiles : pas de hover-only pour les appareils tactiles. */
+@media (hover:none){
+  button:hover,.caisson:hover,.fiche:hover,.resume-card:hover,.talent:not(.locked):hover{transform:none;box-shadow:inherit}
+}
+@media(max-width:380px){
+  #app{padding-inline:12px}
+  #barre{margin-inline:-12px;padding-inline:12px}
+  #barre .nom{font-size:20px;letter-spacing:.12em}
+  #barre .jour{font-size:9px}
+  #barre .poste{font-size:9px;padding:3px 5px}
+  .btn-large{font-size:17px;padding-inline:12px}
+  .action-principale{align-items:stretch;flex-direction:column}
+  .action-principale .btn-large{width:100%}
+  .nav-jeu{width:calc(100% - 12px);bottom:calc(6px + env(safe-area-inset-bottom))}
+}
+@media(prefers-reduced-motion:reduce){
+  .ecran.actif{animation:none}
+  button,.caisson,.fiche,.resume-card,.talent{transition:none}
+}
+
+
+/* ============================================================
+   POLISH 02 — identité d'écran / profondeur / moments de crise
+   Couche visuelle + micro-UX. Aucun changement de règle.
+   ============================================================ */
+:root{
+  --verre-fort:rgba(9,14,20,.92);
+  --bordure-lumineuse:rgba(160,190,205,.18);
+  --texte-fort:#eef6fb;
+  --tech-glow:rgba(84,208,226,.14);
+  --crew-glow:rgba(227,154,108,.14);
+}
+html,body{min-height:100%;}
+body{background-color:var(--sol);}
+body:after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.10;
+  background:linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px);
+  background-size:100% 4px;
+  mix-blend-mode:soft-light;
+}
+#app{isolation:isolate;}
+.ecran{
+  position:relative;
+  min-height:calc(100vh - 86px);
+  padding-top:4px;
+  transition:opacity .22s ease,transform .22s ease;
+}
+.ecran:before{
+  content:"";position:absolute;left:0;right:0;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--bordure-lumineuse),transparent);
+  opacity:.65;pointer-events:none;
+}
+.ecran.actif:after{
+  content:"";position:absolute;left:-20px;right:-20px;top:0;height:90px;pointer-events:none;z-index:-1;
+  background:radial-gradient(ellipse at 50% 0,var(--halo),transparent 72%);
+}
+/* Chaque espace possède une personnalité subtile. */
+html[data-screen="crise"] .ecran.actif:after{background:radial-gradient(ellipse at 50% 0,rgba(228,180,76,.09),transparent 72%)}
+html[data-screen="resolution"] .ecran.actif:after{background:radial-gradient(ellipse at 50% 0,rgba(121,199,138,.08),transparent 72%)}
+html[data-screen="journal"] .ecran.actif:after{background:radial-gradient(ellipse at 50% 0,rgba(205,217,229,.045),transparent 72%)}
+html[data-screen="progression"] .ecran.actif:after{background:radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--accent) 9%,transparent),transparent 72%)}
+/* Statut de rôle lisible immédiatement. */
+html[data-poste="tech"] .caisson .etiquette::selection{background:var(--tech)}
+html[data-poste="equipage"] .caisson .etiquette::selection{background:var(--equipage)}
+/* Cartes : bordure double discrète, comme un appareil de mesure. */
+.caisson,.fiche,.jauge,.resume-card,.talent,.hub-hero{
+  position:relative;
+  background-image:linear-gradient(180deg,rgba(255,255,255,.018),transparent 28%);
+}
+.caisson:before,.fiche:before,.jauge:before,.resume-card:before,.talent:before{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.022),inset 0 0 0 1px rgba(255,255,255,.012);
+}
+/* Gros titres plus “instrument de mission”. */
+.titre-geant,.titre-bloc{font-feature-settings:"case" 1,"ss01" 1;}
+.titre-bloc{letter-spacing:.012em;}
+.etiquette{letter-spacing:.12em;}
+/* Navigation basse : zones sûres et séparation plus nette. */
+.nav-jeu{bottom:calc(8px + env(safe-area-inset-bottom));}
+.nav-jeu:before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),inset 0 -1px 0 rgba(0,0,0,.45);
+}
+.nav-jeu button{min-width:0;}
+.nav-jeu button strong{line-height:1.05;}
+.nav-jeu button span{font-size:14px;line-height:1;opacity:.85;}
+/* Écran de crise : le joueur doit sentir le changement d’état. */
+html[data-screen="crise"] .titre-bloc{font-size:clamp(28px,7vw,42px);}
+html[data-screen="crise"] .accentue{
+  border-color:rgba(228,180,76,.38)!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.42),0 0 0 1px rgba(228,180,76,.05) inset;
+}
+html[data-screen="crise"] .accentue:after{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--alerte);
+  box-shadow:0 0 16px rgba(228,180,76,.28);border-radius:inherit 0 0 inherit;pointer-events:none;
+}
+/* Décision : focus sur l'action, le reste recule. */
+html[data-screen="crise"] .caisson:has(.segments){
+  border-color:rgba(205,217,229,.16);
+  box-shadow:0 16px 38px rgba(0,0,0,.44),0 0 0 1px rgba(255,255,255,.02) inset;
+}
+.segments button{font-size:13px;font-weight:600;min-height:46px;}
+.segments button:focus-visible,
+button:focus-visible,input:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+/* Les états choisis doivent ressortir sans ajouter de couleur agressive. */
+.segments button[aria-pressed="true"]{
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,var(--caisson-clair)),var(--caisson));
+  border-color:color-mix(in srgb,var(--accent) 32%,var(--trait-vif));
+}
+/* Résolution : respiration, pas une avalanche de cartes. */
+html[data-screen="resolution"] .recit{
+  border-left:2px solid var(--bon);
+  padding-left:14px;
+}
+html[data-screen="resolution"] .rapport .item{
+  padding:9px 10px;border-radius:4px;
+  background:rgba(255,255,255,.018);
+  border-bottom:1px solid rgba(255,255,255,.035);
+}
+html[data-screen="resolution"] .etat-code{letter-spacing:.16em;}
+/* Dossier : lecture plus compacte. */
+html[data-screen="dossier"] .releve th{
+  position:sticky;top:0;z-index:2;background:var(--verre-fort);
+  box-shadow:0 1px 0 var(--trait);
+}
+.defile{scrollbar-width:thin;scrollbar-color:var(--trait-vif) transparent;}
+/* Progression : les choix paraissent construits, pas empilés. */
+html[data-screen="progression"] .talent-grid{gap:9px;}
+html[data-screen="progression"] .talent:not(.locked){cursor:pointer;}
+html[data-screen="progression"] .talent.owned{
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 14%,transparent) inset,0 10px 28px rgba(0,0,0,.32);
+}
+html[data-screen="progression"] .talent:not(.owned):not(.locked):hover{
+  transform:translateY(-2px);
+  border-color:color-mix(in srgb,var(--accent) 35%,var(--trait-vif));
+}
+/* Journal : sensation d'archive, plus calme que la station. */
+html[data-screen="journal"] .entree{
+  position:relative;padding:14px 14px 14px 16px;
+  margin-bottom:8px;border:1px solid rgba(42,57,73,.7);
+  background:linear-gradient(180deg,rgba(255,255,255,.016),rgba(255,255,255,.006));
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+}
+html[data-screen="journal"] .entree:before{
+  content:"";position:absolute;left:0;top:10px;bottom:10px;width:2px;background:var(--trait-vif);
+}
+html[data-screen="journal"] .entree .quand{font-family:var(--mono);letter-spacing:.05em;}
+/* Menu : vraie séparation primaire / système. */
+.menu-panneau{border-left:1px solid rgba(82,100,116,.36);}
+.menu-section{font-size:9px;letter-spacing:.15em;}
+.menu-item span{font-weight:600;}
+.menu-item small{opacity:.68;}
+/* Inputs : cohérents avec les instruments. */
+input,select,textarea{
+  border-radius:4px!important;
+  background:linear-gradient(180deg,#0c131b,#090e14)!important;
+  border-color:var(--trait-vif)!important;
+  box-shadow:inset 0 1px 8px rgba(0,0,0,.25)!important;
+}
+input::placeholder{color:#5d6e80;}
+/* Feedback tactile : donner une réponse immédiate, sans animation décorative. */
+@media (hover:none){
+  button:active{transform:translateY(1px) scale(.997);}
+  .segments button:active{filter:brightness(1.08);}
+}
+@media(max-width:600px){
+  .ecran{min-height:calc(100vh - 76px);}
+  .pile{gap:10px;}
+  .caisson{padding:12px;}
+  .titre-bloc{line-height:1.02;}
+  .releve{font-size:12px;}
+}
+@media(max-width:380px){
+  .ecran{padding-top:0;}
+  .caisson,.fiche,.jauge,.resume-card,.talent{box-shadow:0 7px 20px rgba(0,0,0,.38);}
+  .segments button{min-height:44px;font-size:12px;}
+  .nav-jeu button span{font-size:13px;}
+  .nav-jeu button strong{font-size:10px;}
+}
+@media(prefers-reduced-motion:reduce){
+  .ecran,.nav-jeu button,.talent{transition:none!important;}
+}
+
+
+/* ============================================================
+   POLISH 09 — identité des deux postes / onboarding métier
+   Couche interface uniquement.
+   ============================================================ */
+.poste-shell{display:flex;flex-direction:column;gap:16px;padding-bottom:14px}
+.poste-head{display:flex;flex-direction:column;gap:4px}
+.poste-head .prose{margin:3px 0 0;max-width:46ch;color:var(--givre-doux)}
+.poste-role-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.poste-card{appearance:none;text-align:left;display:flex;flex-direction:column;align-items:stretch;gap:8px;min-height:300px;padding:15px;border:1px solid var(--trait-vif);border-radius:6px;background:linear-gradient(165deg,rgba(19,26,35,.96),rgba(8,13,19,.98));color:var(--givre);cursor:pointer;position:relative;overflow:hidden}
+.poste-card:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 85% 12%,rgba(255,255,255,.05),transparent 34%)}
+.poste-card:after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent-card);box-shadow:0 0 18px var(--accent-card)}
+.poste-card.tech{--accent-card:var(--tech)}
+.poste-card.human{--accent-card:var(--equipage)}
+.poste-card:hover{border-color:color-mix(in srgb,var(--accent-card) 38%,var(--trait-vif));transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.38),0 0 24px color-mix(in srgb,var(--accent-card) 8%,transparent)}
+.poste-card:active{transform:translateY(0)}
+.poste-card-head{display:flex;justify-content:space-between;align-items:center}
+.poste-card-kicker,.poste-card-cta{font:9px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--accent-card)}
+.poste-card-icon{font:25px var(--mono);color:var(--accent-card);line-height:1;opacity:.8}
+.poste-card-title{font:clamp(25px,6vw,34px) var(--display);text-transform:uppercase;letter-spacing:.015em;color:#eef6fb;line-height:1}
+.poste-card-desc{font-size:12px;line-height:1.45;color:var(--givre-doux);max-width:28ch}
+.poste-points{list-style:none;padding:0;margin:5px 0 auto;display:grid;gap:7px}
+.poste-points li{font-size:11px;color:var(--givre-doux);padding-left:13px;position:relative}
+.poste-points li:before{content:"";position:absolute;left:0;top:.56em;width:5px;height:1px;background:var(--accent-card);box-shadow:0 0 8px var(--accent-card)}
+.poste-card-cta{margin-top:8px;padding-top:10px;border-top:1px solid rgba(205,217,229,.08)}
+.poste-explainer{display:flex;align-items:center;gap:9px;color:var(--sourd)}
+.poste-explainer-line{height:1px;flex:1;background:linear-gradient(90deg,transparent,var(--trait-vif),transparent)}
+.poste-explainer-text{font:9px var(--mono);text-align:center;letter-spacing:.04em;text-transform:uppercase;max-width:38ch}
+.poste-demo{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:50px;padding:11px 13px;border:1px dashed var(--trait-vif);background:rgba(13,18,24,.45);box-shadow:none;color:var(--givre-doux);text-align:left}
+.poste-demo small{font-size:10px;color:var(--sourd)}
+@media(max-width:520px){.poste-role-grid{grid-template-columns:1fr}.poste-card{min-height:248px}.poste-card-desc{max-width:38ch}.poste-explainer-text{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.poste-card{transition:none}.poste-card:hover{transform:none}}
+
 </style>
 
+<style id="boree-polish17">
+.affinite-courte{font:10px var(--mono);color:var(--givre-doux);text-transform:uppercase;letter-spacing:.035em;margin-top:2px}
+[data-poste="equipage"] .affinite-courte{color:color-mix(in srgb,var(--accent) 65%,var(--givre-doux))}
+@media(prefers-reduced-motion:reduce){.affinite-courte{transition:none!important}}
+</style>
 <canvas id="neige" aria-hidden="true"></canvas>
 
 <div id="app">
   <header id="barre"></header>
   <main>
     <section id="ecran-accueil" class="ecran actif"></section>
+    <section id="ecran-intro" class="ecran"></section>
     <section id="ecran-regles" class="ecran"></section>
     <section id="ecran-poste" class="ecran"></section>
     <section id="ecran-hub" class="ecran"></section>
+    <section id="ecran-dossier" class="ecran"></section>
+    <section id="ecran-progression" class="ecran"></section>
     <section id="ecran-crise" class="ecran"></section>
     <section id="ecran-transmission" class="ecran"></section>
     <section id="ecran-resolution" class="ecran"></section>
     <section id="ecran-journal" class="ecran"></section>
+    <section id="ecran-sync" class="ecran"></section>
     <section id="ecran-fin" class="ecran"></section>
   </main>
 </div>
+
+<div id="menu-jeu" class="menu-jeu" aria-hidden="true">
+  <div class="menu-voile" data-menu-close></div>
+  <aside class="menu-panneau" role="dialog" aria-modal="true" aria-label="Menu de station">
+    <div class="menu-tete">
+      <div><span class="etiquette">Station</span><strong id="menu-station">—</strong></div>
+      <button class="menu-fermer" data-menu-close aria-label="Fermer">×</button>
+    </div>
+    <div id="menu-corps"></div>
+  </aside>
+</div>
+<nav id="nav-jeu" class="nav-jeu" aria-label="Navigation de station"></nav>
 
 <script>
 /* ============================================================
@@ -643,6 +1176,49 @@ td .att { color: var(--alerte); }
   var JOURS_HIVER = 54;
   var JOURS_SESSION = 6;
 
+  var TALENTS = {
+    tech: [
+      {id:'diag1',nom:'Lecture vibratoire',desc:'Un indice technique supplémentaire lors des diagnostics.',cout:1,req:[]},
+      {id:'diag2',nom:'Diagnostic différentiel',desc:'Un second indice technique quand une piste est ambiguë.',cout:2,req:['diag1']},
+      {id:'thermo1',nom:'Thermodynamique du froid',desc:'+0,5 kW de marge lors des nuits thermiques.',cout:1,req:[]},
+      {id:'thermo2',nom:'Gestion de charge',desc:'Une surcharge thermique est moins punitive.',cout:2,req:['thermo1']},
+      {id:'maint1',nom:'Maintenance préventive',desc:'Les modules endommagés s’usent moins entre les crises.',cout:1,req:[]},
+      {id:'maint2',nom:'Tolérances mécaniques',desc:'Une réparation rend 2 points d’intégrité supplémentaires.',cout:2,req:['maint1']},
+      {id:'struct1',nom:'Structures polaires',desc:'Les tâches de structure sont légèrement moins punitives.',cout:1,req:[]},
+      {id:'struct2',nom:'Calcul de rupture',desc:'Une tâche technique ratée coûte moins d’intégrité.',cout:2,req:['struct1']},
+      {id:'palier1',nom:'Dynamique des machines',desc:'Lors d’un incident mécanique, un indice distingue palier, désalignement ou surcharge.',cout:1,req:['diag1']},
+      {id:'metrologie1',nom:'Métrologie des capteurs',desc:'Les diagnostics techniques révèlent une dérive probable d’un capteur.',cout:1,req:['diag1']},
+      {id:'fluides1',nom:'Hydraulique du froid',desc:'Une conduite gelée endommage moins la station lorsqu’elle casse.',cout:2,req:['thermo1']}
+    ],
+    equipage: [
+      {id:'triage1',nom:'Triage clinique',desc:'Les conséquences santé d’un mauvais diagnostic sont atténuées.',cout:1,req:[]},
+      {id:'triage2',nom:'Diagnostic clinique',desc:'Un indice infirmier supplémentaire dans les diagnostics.',cout:2,req:['triage1']},
+      {id:'froid1',nom:'Médecine du froid',desc:'Les blessures et hypothermies récupèrent mieux.',cout:1,req:[]},
+      {id:'froid2',nom:'Protocoles d’hypothermie',desc:'Les personnes fragiles supportent mieux les nuits froides.',cout:2,req:['froid1']},
+      {id:'fatigue1',nom:'Gestion de la fatigue',desc:'Le dépassement horaire coûte moins de santé.',cout:1,req:[]},
+      {id:'fatigue2',nom:'Récupération active',desc:'Une semaine de repos donne davantage de moral.',cout:2,req:['fatigue1']},
+      {id:'psy1',nom:'Lecture du groupe',desc:'Les conflits de couchage font perdre moins de cohésion.',cout:1,req:[]},
+      {id:'psy2',nom:'Médiation',desc:'Les relations se réparent plus facilement.',cout:2,req:['psy1']},
+      {id:'const1',nom:'Surveillance des constantes',desc:'Lors d’un malaise, un indice clinique précise la gravité de l’épisode.',cout:1,req:['triage1']},
+      {id:'plaies1',nom:'Soins des plaies',desc:'Les blessures subies pendant une tempête sont moins lourdes.',cout:1,req:['froid1']},
+      {id:'rehyd1',nom:'Perfusion & réhydratation',desc:'Un épisode digestif révèle plus clairement une déshydratation liée à l’eau.',cout:2,req:['triage2']}
+    ],
+    coop: [
+      {id:'partage1',nom:'Protocole de transmission',desc:'Des indices croisés apparaissent dans certains diagnostics.',cout:1,req:[]},
+      {id:'partage2',nom:'Double lecture',desc:'Les indices métier peuvent révéler une seconde piste.',cout:2,req:['partage1']},
+      {id:'coord1',nom:'Coordination de crise',desc:'Une résolution parfaite rapporte +1 cohésion.',cout:1,req:[]},
+      {id:'coord2',nom:'Synchronisation',desc:'Les erreurs de coordination coûtent moins de cohésion.',cout:2,req:['coord1']},
+      {id:'memoire1',nom:'Mémoire de station',desc:'Les conséquences importantes sont signalées dans le journal.',cout:1,req:[]},
+      {id:'memoire2',nom:'Archives croisées',desc:'Certaines connaissances anciennes reviennent comme indices.',cout:2,req:['memoire1']}
+    ]
+  };
+  function progressionBase(){return {tech:{points:0,unlocked:[]},equipage:{points:0,unlocked:[]},coop:{points:0,unlocked:[]}};}
+  function talentDef(b,id){return (TALENTS[b]||[]).find(function(t){return t.id===id;})||null;}
+  function talentHas(st,b,id){return !!(st.progression&&st.progression[b]&&st.progression[b].unlocked.indexOf(id)>=0);}
+  function talentCanBuy(st,b,id){var d=talentDef(b,id),p=st.progression&&st.progression[b];if(!d||!p||p.unlocked.indexOf(id)>=0||p.points<d.cout)return false;return d.req.every(function(r){return p.unlocked.indexOf(r)>=0;});}
+  function buyTalent(st,b,id){if(!talentCanBuy(st,b,id))return {ok:false};var d=talentDef(b,id),p=st.progression[b];p.points-=d.cout;p.unlocked.push(id);return {ok:true,talent:d};}
+  function grantProgression(st,bonus){if(!st.progression)st.progression=progressionBase();st.progression.tech.points+=1+(bonus&&bonus.tech?1:0);st.progression.equipage.points+=1+(bonus&&bonus.equipage?1:0);st.progression.coop.points+=1+(bonus&&bonus.coop?1:0);}
+
   /* ---------- création de l'état initial ---------- */
   function initialState(seed) {
     var rng = makeRng(seed + '|roster');
@@ -659,7 +1235,7 @@ td .att { color: var(--alerte); }
         trait: traits[i % traits.length],
         rythme: 'jour', boisson: 'café',
         couchage: habs[i % habs.length],
-        etat: 'ok', bobo: null
+        etat: 'ok', bobo: null, memoire: [], preference: { skill: p.sk[0], label: SKILL_LABEL[p.sk[0]] }, procheId: null
       };
     });
     // une personne travaille de nuit, une autre ne boit que du thé : détails
@@ -674,17 +1250,32 @@ td .att { color: var(--alerte); }
         rel[crew[a].id + '|' + crew[b].id] = rng.range(-1, 1);
       }
     }
+    // chaque personnage peut avoir une personne vers qui il se tourne
+    // instinctivement. Ce lien reste déterministe et n'est connu que du poste Humain.
+    crew.forEach(function(c){
+      var others = crew.filter(function(x){ return x.id !== c.id; }).sort(function(a,b){
+        return (rel[c.id + '|' + b.id] || rel[b.id + '|' + c.id] || 0) - (rel[c.id + '|' + a.id] || rel[a.id + '|' + c.id] || 0);
+      });
+      if (others.length) {
+        var rv = rel[c.id + '|' + others[0].id];
+        if (rv == null) rv = rel[others[0].id + '|' + c.id];
+        if (rv >= 1) c.procheId = others[0].id;
+      }
+    });
+
     // une tension installée dès le départ
     var pa = rng.int(crew.length), pb = (pa + 1 + rng.int(crew.length - 1)) % crew.length;
     rel[relKey(crew[pa].id, crew[pb].id)] = -2;
 
     return {
       seed: seed, annee: 1, jour: 1, session: 0,
-      integrite: 82, cohesion: 74,
+      integrite: 70, cohesion: 68,
       modules: mods, crew: crew, rel: rel,
       chantier: null, chantierFait: 0,
       journal: [], dette: [], fini: false, issue: null,
-      lastType: null
+      lastType: null,
+      eventPressures: {instrument:0, eau:0, sommeil:0},
+      progression: progressionBase()
     };
   }
   function relKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
@@ -692,6 +1283,14 @@ td .att { color: var(--alerte); }
   function bumpRel(st, a, b, d) {
     var k = relKey(a, b);
     st.rel[k] = Math.max(-3, Math.min(3, (st.rel[k] || 0) + d));
+  }
+  function memoire(st, id, texte) {
+    var c = st.crew.find(function (x) { return x.id === id; });
+    if (!c || !texte) return;
+    if (!Array.isArray(c.memoire)) c.memoire = [];
+    if (c.memoire.indexOf(texte) >= 0) return;
+    c.memoire.push(texte);
+    if (c.memoire.length > 4) c.memoire.shift();
   }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function actifs(st) { return st.crew.filter(function (c) { return c.etat !== 'critique' && c.etat !== 'perdu'; }); }
@@ -719,7 +1318,7 @@ td .att { color: var(--alerte); }
     // puissance serrée : de quoi chauffer correctement deux ou trois modules,
     // jamais tous. Purger un module est un choix légitime, pas une faute.
     var plein = mods.reduce(function (s, m) { return s + COUT_NIVEAU[3] * (m.cap >= 2 ? 1 : 0.8); }, 0);
-    var budget = Math.round((plein * (0.60 + rng.f() * 0.16)) * 2) / 2;
+    var budget = Math.round((plein * (0.56 + rng.f() * 0.14) + (talentHas(st,'tech','thermo1') ? 0.5 : 0)) * 2) / 2;
 
     var cout = {}, temps = {};
     mods.forEach(function (m) {
@@ -733,7 +1332,7 @@ td .att { color: var(--alerte); }
       var mini = 4, pourquoi = null;
       if (c.etat === 'malade' || c.sante < 55) { mini = 13; pourquoi = c.bobo || 'fiévreux, ne doit pas prendre froid'; }
       else if (c.etat === 'blesse') { mini = 10; pourquoi = c.bobo || 'blessé, immobilisé une partie de la nuit'; }
-      else if (c.trait.id === 'froid') { mini = -2; pourquoi = 'supporte le froid mieux que les autres'; }
+      else if (c.trait.id === 'froid') { mini = -2; pourquoi = 'supporte mieux le froid que les autres'; }
       else if (c.trait.id === 'poussiere') { mini = 7; pourquoi = 'tousse dès qu\'il fait humide et froid'; }
       var seul = c.trait.id === 'insomnie';
       var cache = c.trait.id === 'orgueil' && mini > 4;
@@ -777,7 +1376,7 @@ td .att { color: var(--alerte); }
     var niveauxReels = niveaux.slice();
     if (surcharge) {
       niveauxReels = niveaux.map(function (l) { return Math.max(0, l - 1); });
-      dIntegrite -= 7;
+      dIntegrite -= talentHas(st,'tech','thermo2') ? 6 : 8;
       tech.push({ t: 'bad', txt: 'Surcharge : ' + conso.toFixed(1) + ' kW demandés pour ' + cr.budget.toFixed(1) + ' kW disponibles. Le régulateur a délesté d\'un cran partout.' });
       shared.push('Le groupe a décroché vers deux heures du matin. Tout est redescendu d\'un cran.');
     } else {
@@ -792,7 +1391,7 @@ td .att { color: var(--alerte); }
         tech.push({ t: 'ok', txt: m.nom + ' hors service, conduites purgées.' });
       } else if (t <= -2) {
         st.modules[m.id].dmg = Math.min(2, st.modules[m.id].dmg + 1);
-        dIntegrite -= 9;
+        dIntegrite -= talentHas(st,'tech','fluides1') ? 7 : 9;
         tech.push({ t: 'bad', txt: m.nom + ' à ' + t + ' °C : la conduite a gelé puis cédé. Module à réparer.' });
         shared.push('Une conduite a éclaté dans ' + m.nom + '. Il a fallu couper l\'eau à quatre heures.');
       } else if (t < 3) {
@@ -808,7 +1407,7 @@ td .att { color: var(--alerte); }
     occ.forEach(function (list, i) {
       var m = cr.mods[i];
       if (list.length > m.cap) {
-        dCohesion -= 5;
+        dCohesion -= talentHas(st,'equipage','psy1') ? 3 : 5;
         tech.push({ t: 'warn', txt: m.nom + ' : ' + list.length + ' personnes pour ' + m.cap + ' couchages.' });
         crewR.push({ t: 'warn', txt: list.length + ' personnes entassées dans ' + m.nom + '. Personne n\'a vraiment dormi.' });
         list.forEach(function (c) { applyMoral(st, c.id, -6); });
@@ -817,20 +1416,22 @@ td .att { color: var(--alerte); }
 
     // besoins
     cr.eq.forEach(function (c, i) {
+      var real = st.crew.find(function (x) { return x.id === c.id; });
       var m = cr.mods[place[i]];
       var t = cr.temps[m.id][niveauxReels[place[i]]];
       var b = cr.besoins[i];
       if (t < b.mini) {
         var ecart = b.mini - t;
         var dommage = ecart >= 12 ? 26 : ecart >= 6 ? 16 : 8;
+        if (talentHas(st,'equipage','froid2')) dommage = Math.max(1, Math.round(dommage * 0.8));
         applySante(st, c.id, -dommage, ecart >= 12 ? 'a pris froid toute la nuit' : 'a mal dormi dans le froid');
         applyMoral(st, c.id, -8);
         dCohesion -= 4;
         crewR.push({
           t: dommage >= 16 ? 'bad' : 'warn',
           txt: c.prenom + ' a passé la nuit à ' + t + ' °C dans ' + m.nom + '. ' +
-            (b.pourquoi ? 'Or ' + b.pourquoi + '. ' : '') +
-            (dommage >= 16 ? 'Au matin, elle ne tenait plus debout.'.replace('elle', genre(c)) : 'Elle s\'est réveillée grelottante.'.replace('Elle', cap(genre(c))))
+            (b.pourquoi ? (b.pourquoi === 'fiévreux, ne doit pas prendre froid' ? (genre(c) === 'il' ? 'Il est fiévreux et ne doit pas prendre froid. ' : 'Elle est fiévreuse et ne doit pas prendre froid. ') : (genre(c) === 'il' ? 'Il ' : 'Elle ') + b.pourquoi + '. ') : '') +
+            (dommage >= 16 ? (genre(c) === 'il' ? 'Au matin, il ne tenait plus debout.' : 'Au matin, elle ne tenait plus debout.') : (genre(c) === 'il' ? 'Il s\'est réveillé en grelottant.' : 'Elle s\'est réveillée en grelottant.'))
         });
       } else {
         crewR.push({ t: 'ok', txt: c.prenom + ' — nuit correcte dans ' + m.nom + '.' });
@@ -839,6 +1440,25 @@ td .att { color: var(--alerte); }
       if (b.seul && occ[place[i]].length > 1) {
         applyMoral(st, c.id, -7);
         crewR.push({ t: 'warn', txt: c.prenom + ' n\'a pas fermé l\'œil : ' + m.nom + ' était partagé.' });
+      }
+
+      // Un lien solide devient un choix de vie concrète : dormir près d'un
+      // proche fragile rassure, mais le séparer a un petit coût moral.
+      var procheT = real && real.procheId ? st.crew.find(function (x) { return x.id === real.procheId; }) : null;
+      if (procheT && procheT.etat !== 'perdu' && relOf(st, real.id, procheT.id) >= 2) {
+        var procheFragileT = procheT.sante < 55 || procheT.etat === 'malade' || procheT.etat === 'blesse' || procheT.etat === 'critique';
+        if (procheFragileT) {
+          var procheIndexT = cr.eq.findIndex(function (x) { return x.id === procheT.id; });
+          var ensembleT = procheIndexT >= 0 && place[procheIndexT] === place[i];
+          if (ensembleT) {
+            applyMoral(st, c.id, +2);
+            applyMoral(st, procheT.id, +1);
+            crewR.push({ t: 'ok', txt: c.prenom + ' garde ' + procheT.prenom + ' près d' + (genre(c) === 'il' ? 'e lui' : 'elle') + '. Leur présence mutuelle apaise la nuit.' });
+          } else {
+            applyMoral(st, c.id, -2);
+            crewR.push({ t: 'warn', txt: c.prenom + ' reste préoccupé par ' + procheT.prenom + ', logé dans un autre module.' });
+          }
+        }
       }
     });
 
@@ -850,7 +1470,7 @@ td .att { color: var(--alerte); }
       if (place[ia] === place[ib]) {
         bumpRel(st, pair[0], pair[1], -1);
         applyMoral(st, pair[0], -9); applyMoral(st, pair[1], -9);
-        dCohesion -= 9;
+        dCohesion -= (talentHas(st,'coop','coord2') ? 6 : 9);
         crewR.push({ t: 'bad', txt: nomOf(st, pair[0]) + ' et ' + nomOf(st, pair[1]) + ' ont été mis dans le même module. Ça a fini en cris dans le couloir.' });
       } else {
         bumpRel(st, pair[0], pair[1], 1);
@@ -865,7 +1485,7 @@ td .att { color: var(--alerte); }
     });
 
     var propre = dIntegrite === 0 && crewR.every(function (r) { return r.t === 'ok'; });
-    if (propre) { dCohesion += 7; shared.push('Nuit sans incident. C\'est rare, et tout le monde l\'a remarqué.'); }
+    if (propre) { dCohesion += 3; shared.push('Nuit sans incident. C\'est rare, et tout le monde l\'a remarqué.'); }
 
     return {
       tech: tech, crew: crewR, shared: shared,
@@ -922,6 +1542,7 @@ td .att { color: var(--alerte); }
     // une cause laissée sans réponse revient : on régénère tous les indices
     // autour d'elle, sinon le relevé ne collerait plus aux symptômes.
     var causeId = (forcee && pool.indexOf(forcee) >= 0) ? forcee : rng.pick(pool);
+    if (!forcee && st.eventPressures && st.eventPressures.eau > 0 && pool.indexOf('EAU') >= 0 && rng.chance(0.72)) causeId = 'EAU';
     var cause = CAUSES.find(function (c) { return c.id === causeId; });
 
     var cible = null, boucle = null, atteints = [], exempt = null, exemptRaison = null;
@@ -1006,11 +1627,47 @@ td .att { color: var(--alerte); }
       : { cuve: rng.pick(['A', 'B']), turbidite: (rng.range(2, 8) / 10).toFixed(1), chlore: (rng.range(28, 44) / 100).toFixed(2), depuis: rng.range(9, 25) };
     var groupe = { charge: rng.range(86, 98), cycle: '22 h 00 – 06 h 00', heures: rng.range(2100, 3400) };
 
+    var skillClueTech = null, skillClueTech2 = null, skillClueCrew = null;
+    if (talentHas(st,'tech','diag1')) {
+      skillClueTech = causeId === 'FILTRE' ? 'La dérive est localisée à un module et suit exactement l’âge du filtre.'
+        : causeId === 'FUITE' ? 'Le pic de CO apparaît uniquement sur le cycle du groupe, côté Dortoir B.'
+        : causeId === 'SCRUBBER' ? 'Deux modules partagent la même anomalie : la boucle commune est suspecte.'
+        : causeId === 'EAU' ? 'Les personnes qui évitent le thé sont les seules à présenter le même tableau.'
+        : 'L’humidité anormale et la toux restent confinées au même module.';
+    }
+    if (talentHas(st,'tech','diag2')) {
+      skillClueTech2 = (causeId === 'FILTRE' || causeId === 'SCRUBBER')
+        ? 'La concentration augmente surtout la nuit : le renouvellement d’air ne compense plus la charge.'
+        : causeId === 'FUITE' ? 'Le CO et les symptômes disparaissent hors du cycle de combustion.'
+        : causeId === 'EAU' ? 'La chronologie des symptômes suit la mise en service de la cuve contaminée.'
+        : 'Le signal d’humidité précède les symptômes respiratoires : ce n’est pas une simple fatigue.';
+    }
+    if (talentHas(st,'equipage','triage2')) {
+      skillClueCrew = causeId === 'EAU' ? 'Le tableau digestif partagé, sans fièvre, pointe vers une exposition commune plutôt qu’une infection individuelle.'
+        : causeId === 'FUITE' ? 'Le fait que les vertiges cessent dehors est un indice d’exposition à l’air intérieur.'
+        : causeId === 'SCRUBBER' ? 'La somnolence et l’essoufflement touchent plusieurs personnes selon la même zone de couchage.'
+        : causeId === 'MOISISSURE' ? 'Toux + gorge irritée + yeux qui piquent : le regroupement est très localisé.'
+        : 'La fatigue et les céphalées suivent la même zone de couchage, pas les mêmes habitudes individuelles.';
+    }
+    if (talentHas(st,'equipage','rehyd1') && causeId === 'EAU') skillClueCrew = (skillClueCrew ? skillClueCrew + ' ' : '') + 'La perte hydrique probable est cohérente avec une contamination de l’eau plutôt qu’avec une simple fatigue.';
+    if (st.eventPressures && st.eventPressures.instrument > 0) {
+      var capteursSuspects = releves.filter(function(r){ return r.id !== cible; });
+      if (capteursSuspects.length) {
+        var fauxCapteur = rng.pick(capteursSuspects);
+        fauxCapteur.hum = Math.min(88, fauxCapteur.hum + 12);
+        fauxCapteur.filtreAge = Math.min(42, fauxCapteur.filtreAge + 7);
+      }
+      if (talentHas(st,'tech','metrologie1')) skillClueTech2 = (skillClueTech2 ? skillClueTech2 + ' ' : '') + 'Une dérive ancienne perturbe encore un capteur secondaire : sa valeur brute ne doit pas être traitée comme une mesure physique certaine.';
+    }
+    var partageClues = [];
+    if (talentHas(st,'coop','partage1')) partageClues.push('Indice croisé : les symptômes suivent la géographie des modules plus que les personnes elles-mêmes.');
+    if (talentHas(st,'coop','partage2')) partageClues.push(causeId === 'SCRUBBER' ? 'Double lecture : les modules touchés partagent une même boucle de ventilation.' : causeId === 'EAU' ? 'Double lecture : l’exposition suit une même source de consommation.' : 'Double lecture : le signal technique et le vécu humain désignent le même module.');
+
     return {
       type: 'diagnostic',
       titre: 'Diagnostic croisé',
       chapeau: 'Plusieurs personnes vont mal. Nadia veut un nom sur ce qui se passe avant de traiter à l\'aveugle.',
-      causeVraie: causeId, cible: cible, boucle: boucle,
+      causeVraie: causeId, cible: cible, boucle: boucle, skillClueTech: skillClueTech, skillClueTech2: skillClueTech2, skillClueCrew: skillClueCrew, partageClues: partageClues,
       symptomes: symptomes, exempt: exempt ? { nom: exempt.prenom, couchage: exempt.couchage, raison: exemptRaison } : null,
       leurre: leurre, releves: releves, epurateur: epurateur, eau: eau, groupe: groupe,
       equipage: eq.map(function (c) {
@@ -1028,37 +1685,46 @@ td .att { color: var(--alerte); }
     var tech = [], crewR = [], shared = [];
     var dI = 0, dC = 0;
 
-    var bon = fix.id === vrai.fix;
+    var causeBonne = cause.id === vrai.id;
+    var fixBon = fix.id === vrai.fix;
+    var bon = causeBonne && fixBon;
+    var bonGesteMauvaiseHypothese = !causeBonne && fixBon;
     var palliatif = fix.id === 'PALLIATIF';
 
     if (bon) {
       tech.push({ t: 'good', txt: 'Cause confirmée : ' + vrai.nom + '. L\'intervention a réglé le problème à la source.' });
       shared.push('Le lendemain, tout le monde respirait mieux. Nadia a noté la cause au tableau.');
-      dI += 6; dC += 8;
+      dI += 2; dC += 4;
       st.dette = st.dette.filter(function (d) { return !(d.type === 'diagnostic' && d.cause === cr.causeVraie); });
-      cr.symptomes.forEach(function (s) { applySante(st, s.id, +14); applyMoral(st, s.id, +7); });
+      cr.symptomes.forEach(function (s) { applySante(st, s.id, +12); applyMoral(st, s.id, +5); });
       crewR.push({ t: 'good', txt: 'Les symptômes ont reculé en moins de deux jours.' });
-      if (cause.id !== vrai.id) tech.push({ t: 'warn', txt: 'Hypothèse notée : ' + cause.nom + '. Ce n\'était pas tout à fait ça, mais le geste était le bon.' });
+    } else if (bonGesteMauvaiseHypothese) {
+      tech.push({ t: 'warn', txt: 'Le geste était compatible avec le problème, mais le diagnostic annoncé était faux. La cause réelle était : ' + vrai.nom + '.' });
+      shared.push('Le bon geste a limité les dégâts, mais la cause n\'a pas été confirmée. Le problème peut encore revenir.');
+      dI -= 1; dC += 1;
+      cr.symptomes.forEach(function (s) { applySante(st, s.id, +6); });
+      st.dette.push({ type: 'diagnostic', cause: cr.causeVraie, cible: cr.cible, boucle: cr.boucle, jour: st.jour });
+      crewR.push({ t: 'warn', txt: 'Les symptômes ont diminué, mais la cause n\'est pas confirmée.' });
     } else if (palliatif) {
       tech.push({ t: 'warn', txt: 'Ventilation manuelle et module évacué. La cause reste inconnue : ' + vrai.nom + ' continue d\'agir, en sourdine.' });
       shared.push('On a ouvert, ventilé, déplacé les gens. Ça soulage. Ça ne règle rien.');
-      dI -= 3; dC -= 2;
+      dI -= 3; dC -= (talentHas(st,'coop','coord2') ? 1 : 2);
       cr.symptomes.forEach(function (s) { applySante(st, s.id, +4); });
       st.dette.push({ type: 'diagnostic', cause: cr.causeVraie, cible: cr.cible, boucle: cr.boucle, jour: st.jour });
       crewR.push({ t: 'warn', txt: 'Les symptômes stagnent. Personne n\'est dupe.' });
     } else {
       tech.push({ t: 'bad', txt: 'Intervention sur la mauvaise piste. La vraie cause était : ' + vrai.nom + '.' });
       shared.push('Deux jours perdus, du matériel consommé, et les malades toujours malades.');
-      dI -= 8; dC -= 9;
-      cr.symptomes.forEach(function (s) { applySante(st, s.id, -13); applyMoral(st, s.id, -10); });
+      dI -= 8; dC -= (talentHas(st,'equipage','psy1') ? 7 : 9); if (talentHas(st,'coop','coord2')) dC += 2;
+      cr.symptomes.forEach(function (s) { applySante(st, s.id, talentHas(st,'equipage','triage1') ? -10 : -13); applyMoral(st, s.id, -10); });
       st.dette.push({ type: 'diagnostic', cause: cr.causeVraie, cible: cr.cible, boucle: cr.boucle, jour: st.jour });
       crewR.push({ t: 'bad', txt: 'L\'état des malades s\'est aggravé. Nadia a demandé qu\'on reprenne le raisonnement de zéro.' });
     }
     return {
       tech: tech, crew: crewR, shared: shared, dIntegrite: dI, dCohesion: dC,
       journal: {
-        titre: bon ? 'Cause trouvée : ' + vrai.nom.toLowerCase() : palliatif ? 'Paré sans comprendre' : 'Mauvaise piste',
-        txt: bon ? 'Diagnostic juste du premier coup.' : palliatif ? 'On a gagné du temps contre du matériel. La cause court toujours.' : 'On a traité ce qui n\'était pas malade.'
+        titre: bon ? 'Cause trouvée : ' + vrai.nom.toLowerCase() : bonGesteMauvaiseHypothese ? 'Bon geste, mauvais diagnostic' : palliatif ? 'Paré sans comprendre' : 'Mauvaise piste',
+        txt: bon ? 'Diagnostic juste du premier coup.' : bonGesteMauvaiseHypothese ? 'Le geste était pertinent, mais la cause n\'a pas été identifiée. Elle reste à surveiller.' : palliatif ? 'On a gagné du temps contre du matériel. La cause court toujours.' : 'On a traité ce qui n\'était pas malade.'
       }
     };
   }
@@ -1082,21 +1748,22 @@ td .att { color: var(--alerte); }
 
   function genTempete(st, rng) {
     var eq = actifs(st);
-    var fenetre = rng.range(7, 10);
+    var fenetre = rng.range(6, 9);
+    if (st.eventPressures && st.eventPressures.sommeil > 0) fenetre = Math.max(5, fenetre - 1);
     var dispo = TACHES.filter(function (t) {
       if (t.id === 't8' && !st.modules.SERRE.built) return false;
       return true;
     });
     var n = Math.min(5, Math.max(4, eq.length));
     var taches = rng.picks(dispo, n).map(function (t) {
-      return Object.assign({}, t, { h: Math.max(1, t.h + (rng.chance(0.3) ? 1 : 0)), sev: t.sev + (st.annee - 1) * 2 });
+      return Object.assign({}, t, { h: Math.max(1, t.h + (rng.chance(0.3) ? 1 : 0)), sev: t.sev + (st.annee - 1) * 3 - (talentHas(st,'tech','struct1') ? 1 : 0) });
     });
     var vent = rng.range(110, 165) + (st.annee - 1) * 10;
 
     return {
       type: 'tempete',
       titre: 'La tempête',
-      chapeau: 'Le front arrive dans ' + fenetre + ' heures, ' + vent + ' km/h annoncés. Il y a plus à faire que d\'heures pour le faire.',
+      chapeau: 'Le front arrive dans ' + fenetre + ' heures, ' + vent + ' km/h annoncés. Il y a plus de travail que d\'heures disponibles.',
       fenetre: fenetre, vent: vent, taches: taches, eq: eq,
       fiches: eq.map(function (c) {
         var certs = Object.keys(c.sk).map(function (k) { return SKILL_LABEL[k] + ' niv. ' + c.sk[k]; });
@@ -1131,13 +1798,22 @@ td .att { color: var(--alerte); }
       heures[c.id] = (heures[c.id] || 0) + t.h;
       var niv = c.sk[t.sk] || 0;
       var real = st.crew.find(function (x) { return x.id === c.id; });
+      var preference = real && real.preference ? real.preference.skill : null;
+      var traumaExterieur = real && Array.isArray(real.memoire) && real.memoire.some(function(m){ return m.indexOf('alerte structurelle mal coordonnée') >= 0; });
+      var detteSommeil = real && Array.isArray(real.memoire) && real.memoire.some(function(m){ return m.indexOf('période d’épuisement') >= 0 || m.indexOf("période d'épuisement") >= 0; });
+      var procheLien = real && real.procheId ? relOf(st, real.id, real.procheId) : 0;
+      var procheFragileStorm = false;
+      if (real && real.procheId) {
+        var pclose = st.crew.find(function (x) { return x.id === real.procheId; });
+        procheFragileStorm = !!(pclose && pclose.etat !== 'perdu' && (pclose.sante < 55 || pclose.etat === 'malade' || pclose.etat === 'blesse' || pclose.etat === 'critique'));
+      }
 
       if (niv === 0) {
-        dI -= Math.round(t.sev * 0.8);
+        dI -= Math.round(t.sev * (talentHas(st,'tech','struct2') ? 0.65 : 0.8));
         tech.push({ t: 'bad', txt: 'Échec — ' + t.nom + ' : personne de non qualifié en ' + SKILL_LABEL[t.sk] + '. ' + t.csq });
         crewR.push({ t: 'bad', txt: c.nom.split(' ')[0] + ' a essayé. Ce n\'était pas son métier, et ça s\'est vu.' });
         applyMoral(st, c.id, -10);
-        if (t.ext && rng.chance(0.45)) { applySante(st, c.id, -18, 'gelures aux mains'); setEtat(st, c.id, 'blesse', 'gelures aux mains'); crewR.push({ t: 'bad', txt: c.nom.split(' ')[0] + ' est rentré avec les mains gelées.' }); }
+        if (t.ext && rng.chance(0.45)) { applySante(st, c.id, talentHas(st,'equipage','plaies1') ? -12 : -18, 'gelures aux mains'); setEtat(st, c.id, 'blesse', 'gelures aux mains'); crewR.push({ t: 'bad', txt: c.nom.split(' ')[0] + ' est rentré avec les mains gelées.' }); }
       } else if (niv < t.niv) {
         dI -= Math.round(t.sev * 0.35);
         tech.push({ t: 'warn', txt: 'Partiel — ' + t.nom + ' : niveau ' + niv + ' pour un travail de niveau ' + t.niv + '. Ça tiendra peut-être.' });
@@ -1151,11 +1827,36 @@ td .att { color: var(--alerte); }
         dI -= Math.round(t.sev * 0.25);
         tech.push({ t: 'warn', txt: 'Fait, mal — ' + t.nom + '.' });
         applySante(st, c.id, -16, 'a travaillé en étant déjà atteint');
-        crewR.push({ t: 'bad', txt: c.nom.split(' ')[0] + ' a fait le travail alors qu\'' + (genre(c) === 'il' ? 'il' : 'elle') + ' n\'était pas en état. Ça se paiera.' });
+        crewR.push({ t: 'bad', txt: c.nom.split(' ')[0] + ' a fait le travail alors qu\'' + (genre(c) === 'il' ? 'il' : 'elle') + ' n\'était déjà pas en état. Ça se paiera.' });
       } else {
         tech.push({ t: 'good', txt: 'Fait — ' + t.nom + '.' });
-        applyMoral(st, c.id, +4);
-        if (t.ext) applySante(st, c.id, -3);
+        applyMoral(st, c.id, preference === t.sk ? +6 : +4);
+        if (preference === t.sk) crewR.push({ t: 'ok', txt: c.nom.split(' ')[0] + ' est particulièrement à l’aise sur ' + SKILL_LABEL[t.sk] + '.' });
+        if (t.ext) {
+          applySante(st, c.id, traumaExterieur ? -5 : -3);
+          if (procheLien >= 2 && procheFragileStorm) {
+            dI -= Math.max(1, Math.round(t.sev * 0.12));
+            applyMoral(st, c.id, -3);
+            crewR.push({ t: 'warn', txt: c.nom.split(' ')[0] + ' perd du temps dehors : ' + nomOf(st, real.procheId) + ' reste en difficulté à l’intérieur.' });
+          }
+          if (traumaExterieur) {
+            dI -= Math.max(1, Math.round(t.sev * 0.15));
+            applyMoral(st, c.id, -4);
+            crewR.push({ t: 'warn', txt: c.nom.split(' ')[0] + ' hésite devant la zone extérieure après l’ancien incident structurel. La tâche prend plus de temps.' });
+          }
+        }
+      }
+    });
+
+    // Les liens forts ont un coût quand un proche est déjà fragilisé.
+    cr.eq.forEach(function (c) {
+      var real = st.crew.find(function (x) { return x.id === c.id; });
+      if (!real || !real.procheId) return;
+      var proche = st.crew.find(function (x) { return x.id === real.procheId; });
+      if (!proche || proche.etat === 'perdu') return;
+      if (proche.sante < 55) {
+        applyMoral(st, real.id, -3);
+        crewR.push({ t: 'warn', txt: real.prenom + ' garde un œil sur ' + proche.prenom + '. La relation pèse sur sa concentration.' });
       }
     });
 
@@ -1165,14 +1866,19 @@ td .att { color: var(--alerte); }
         var c = st.crew.find(function (x) { return x.id === id; });
         dI -= 5;
         tech.push({ t: 'bad', txt: (c ? c.prenom : '?') + ' : ' + heures[id] + ' h de travail affectées pour une fenêtre de ' + cr.fenetre + ' h. La dernière tâche a été bâclée.' });
-        applySante(st, id, -14, 'épuisement'); applyMoral(st, id, -8);
+        var relc = st.crew.find(function(x){return x.id===id;});
+        var detteSommeil = relc && Array.isArray(relc.memoire) && relc.memoire.some(function(m){ return m.indexOf('période d’épuisement') >= 0 || m.indexOf('période d\'épuisement') >= 0; });
+        var perte = talentHas(st,'equipage','fatigue1') ? -9 : -14;
+        if (detteSommeil) perte -= 3;
+        applySante(st, id, perte, 'épuisement'); applyMoral(st, id, -8);
+        if (detteSommeil) crewR.push({t:'warn',txt:(relc ? relc.prenom : '?') + ' paie encore une ancienne dette de sommeil.'});
       } else if (heures[id] >= cr.fenetre - 1) {
         applySante(st, id, -6);
       }
     });
 
     var faites = cr.taches.filter(function (t, i) { return assign[i] !== SKIP; }).length;
-    if (dI === 0) { dC += 8; shared.push('La tempête a passé sur une station entièrement arrimée. Personne n\'y croyait.'); }
+    if (dI === 0) { dC += 6; shared.push('La tempête a passé sur une station entièrement arrimée. Personne n\'y croyait.'); }
     return {
       tech: tech, crew: crewR, shared: shared, dIntegrite: dI, dCohesion: dC,
       journal: {
@@ -1182,15 +1888,123 @@ td .att { color: var(--alerte); }
     };
   }
 
+  /* ============================================================
+     ÉVÉNEMENTS — conséquences intermédiaires, déterministes
+     Les trois premières crises restent fixes. Ensuite, de petits
+     événements obligent les deux postes à interpréter la même situation.
+     ============================================================ */
+  var EVENEMENTS = [
+    { id:'radio', titre:'Message dans la nuit', tech:['Canal 3','Canal 7','Canal 12'], crew:['Nadia','Personne d’autre','Toute l’équipe'], techGood:2 },
+    { id:'medical', titre:'Le malaise', tech:['Observation 6 h','Isolement','Intervention immédiate'], crew:['La personne la plus atteinte','La personne la plus fatiguée','La personne qui minimise'], techGood:1 },
+    { id:'structure', titre:'Craquement dans la structure', tech:['Contenir la zone','Couper le module','Laisser travailler la structure'], crew:['Sortir inspecter','Rester en observation','Préparer l’évacuation'], techGood:0 }
+  ];
+  // Pack de deuxième hivernage : on laisse le premier hiver inchangé pour préserver
+  // les anciennes sauvegardes et introduire progressivement des problèmes plus spécialisés.
+  var EVENEMENTS_V2 = [
+    { id:'instrument', titre:'Dérive de l’instrument', tech:['Recalibrer à froid','Ignorer jusqu’à demain','Remplacer le module de mesure'], crew:['Continuer la série','Suspendre les prélèvements','Documenter l’anomalie'], techGood:0 },
+    { id:'eau', titre:'Eau trouble', tech:['Purger la conduite','Changer le filtre','Surveiller 24 h'], crew:['Limiter les boissons','Chercher des symptômes','Ne rien modifier'], techGood:1 },
+    { id:'sommeil', titre:'Relève impossible', tech:['Réduire la charge nocturne','Déplacer la relève','Forcer le planning'], crew:['Réorganiser les binômes','Maintenir le planning','Donner la relève à l’épuisé'], techGood:0 }
+  ];
+  function genEvenement(st, rng) {
+    var actifsEq = actifs(st);
+    var pool = st.annee > 1 ? EVENEMENTS.concat(EVENEMENTS_V2) : EVENEMENTS;
+    var debts = st.dette.filter(function(d){ return d.type==='evenement' && pool.some(function(e){return e.id===d.eventId;}); });
+    var e = null;
+    if (debts.length && rng.chance(0.72)) e = pool.find(function(x){return x.id===debts[0].eventId;});
+    if (!e) e = rng.pick(pool);
+    var cible = rng.pick(actifsEq);
+    var techLabels = e.tech.slice();
+    var crewLabels = e.crew.map(function(x){ return x === 'Nadia' ? cible.prenom : x; });
+    if (e.id === 'radio' && talentHas(st,'tech','diag1')) techLabels.push('Écouter le signal brut');
+    if (e.id === 'instrument' && talentHas(st,'tech','metrologie1')) techLabels.unshift('Lire la dérive instrument par instrument');
+    var skillClueCrew = null, skillClueTech = null;
+    if (e.id === 'medical' && talentHas(st,'equipage','const1')) skillClueCrew = cible.prenom + ' : respiration régulière, pouls ralenti et récupération en deux minutes. L’urgence vitale paraît faible, mais l’épisode mérite surveillance.';
+    if (e.id === 'medical' && talentHas(st,'equipage','rehyd1')) skillClueCrew = (skillClueCrew ? skillClueCrew + ' ' : '') + 'La muqueuse buccale est sèche et la diurèse est basse : une déshydratation est plausible.';
+    if (e.id === 'structure' && talentHas(st,'tech','palier1')) skillClueTech = 'Le spectre de vibration est localisé autour du palier : le désalignement reste possible, mais une surcharge pure est peu probable.';
+    if (e.id === 'structure' && talentHas(st,'tech','metrologie1')) skillClueTech = (skillClueTech ? skillClueTech + ' ' : '') + 'Le capteur de contrainte dérive de 6 % : sa valeur brute doit être interprétée avec prudence.';
+    if (e.id === 'instrument' && talentHas(st,'tech','diag2')) skillClueTech = 'Deux capteurs dérivent différemment : l’anomalie ressemble davantage à un problème de mesure qu’à une variation physique réelle.';
+    if (e.id === 'eau' && talentHas(st,'equipage','rehyd1')) skillClueCrew = 'La sécheresse buccale et une diurèse faible chez plusieurs personnes orientent vers une déshydratation ; le symptôme n’est pas spécifique.';
+    if (e.id === 'sommeil' && talentHas(st,'equipage','psy1')) skillClueCrew = 'Deux binômes montrent une irritabilité inhabituelle. Le problème semble davantage organisationnel que relationnel.';
+    var chapeau = e.id === 'instrument' ? 'Une série scientifique commence à dériver. Le problème n’est peut-être pas dans la banquise, mais dans ce qui la mesure.'
+      : e.id === 'eau' ? 'L’eau du robinet présente une légère turbidité. Les données techniques et les premiers symptômes ne racontent pas exactement la même histoire.'
+      : e.id === 'sommeil' ? 'La relève de nuit ne tient plus. La station fonctionne encore, mais les personnes qui la font fonctionner commencent à manquer de sommeil.'
+      : e.id === 'radio' ? 'Un signal faible traverse la nuit. Vous avez peu de temps avant qu’il disparaisse.'
+      : e.id === 'medical' ? cible.prenom + ' vient de faire un malaise. Les informations utiles sont réparties entre les deux postes.'
+      : 'La station vient de bouger. Un craquement a été entendu dans la structure ouest.';
+    return {
+      type:'evenement', eventId:e.id, titre:e.titre,
+      chapeau:chapeau, techChoices:techLabels, crewChoices:crewLabels, cible:cible.id, skillClueCrew:skillClueCrew, skillClueTech:skillClueTech,
+      techGood:e.techGood, widths:[techLabels.length,crewLabels.length,2], defaut:[0,0,0], chantiers:chantiersDispo(st)
+    };
+  }
+  function resEvenement(st, cr, dec) {
+    var e = EVENEMENTS.concat(EVENEMENTS_V2).find(function(x){return x.id===cr.eventId;});
+    var tech=[], crewR=[], shared=[], dI=0,dC=0;
+    var ti=dec[0], ci=dec[1];
+    var bonTech = ti === cr.techGood;
+    var bonCrew = (cr.eventId==='radio' ? ci===0 : cr.eventId==='medical' ? ci===0 : cr.eventId==='sommeil' ? ci===0 : ci===1);
+    if (cr.eventId==='radio') {
+      if (bonTech && bonCrew) { dC+=4; shared.push('Le signal a été accroché au bon moment. Quelques mots seulement, mais ils prouvent que la base vous entend encore.'); tech.push({t:'good',txt:'Le canal choisi a livré un signal exploitable.'}); crewR.push({t:'good',txt:'La transmission a été courte et claire.'}); }
+      else if (bonTech || bonCrew) { dI-=2; dC+=1; shared.push('Le signal a été partiellement compris. Impossible de savoir si la base a reçu la réponse.'); tech.push({t:bonTech?'good':'warn',txt:bonTech?'Le canal était le bon, mais le relais humain a brouillé le message.':'Le choix technique n’était pas idéal, mais la parole a sauvé une partie de la transmission.'}); }
+      else { dI-=5; dC-=3; shared.push('Le signal est mort avant qu’on puisse en tirer quelque chose.'); tech.push({t:'bad',txt:'Mauvais canal et mauvaise fenêtre d’écoute.'}); crewR.push({t:'warn',txt:'Personne ne sait si quelqu’un, dehors, a entendu.'}); }
+    } else if (cr.eventId==='instrument') {
+      if (bonTech && bonCrew) { dC+=3; if (st.eventPressures) st.eventPressures.instrument=0; shared.push('La dérive a été isolée comme un problème d’instrumentation. La série scientifique peut reprendre sans jeter les mesures précédentes.'); }
+      else if (bonTech || bonCrew) { dC-=1; dI-=1; if (st.eventPressures) st.eventPressures.instrument=Math.max(st.eventPressures.instrument||0,1); shared.push('Les mesures restent exploitables, mais une partie de la série devra être annotée comme douteuse. Une petite dérive restera à surveiller.'); }
+      else { dI-=3; dC-=2; if (st.eventPressures) st.eventPressures.instrument=2; st.dette.push({type:'evenement',eventId:'instrument',jour:st.jour,cause:'dérive non traitée'}); shared.push('La dérive a été laissée dans la série. La station travaille désormais avec des données dont personne n’est sûr ; les capteurs porteront encore cette erreur.'); }
+    } else if (cr.eventId==='eau') {
+      if (bonTech && bonCrew) { dC+=3; if (st.eventPressures) st.eventPressures.eau=0; shared.push('Le traitement de l’eau a corrigé la turbidité avant qu’elle ne devienne un problème sanitaire.'); }
+      else if (bonTech || bonCrew) { dC-=1; if (st.eventPressures) st.eventPressures.eau=Math.max(st.eventPressures.eau||0,1); applySante(st,cr.cible,-3,'exposition à une eau douteuse'); shared.push('Le problème est contenu, mais une personne commence à présenter des symptômes légers. La qualité de l’eau restera sous surveillance.'); }
+      else { dI-=2; dC-=4; if (st.eventPressures) st.eventPressures.eau=3; applySante(st,cr.cible,-8,'déshydratation / eau douteuse'); st.dette.push({type:'evenement',eventId:'eau',jour:st.jour,cause:'eau non traitée'}); shared.push('La turbidité a été ignorée. L’eau continue d’être consommée et pèsera sur les prochains diagnostics.'); }
+    } else if (cr.eventId==='sommeil') {
+      if (bonTech && bonCrew) { dC+=4; if (st.eventPressures) st.eventPressures.sommeil=0; shared.push('La relève a été réorganisée avant qu’une erreur de fatigue ne devienne un accident.'); }
+      else if (bonTech || bonCrew) { dC+=0; if (st.eventPressures) st.eventPressures.sommeil=Math.max(st.eventPressures.sommeil||0,1); applyMoral(st,cr.cible,-3); shared.push('Le planning tient encore, mais la dette de sommeil commence à se voir. La prochaine tempête laissera moins de marge.'); }
+      else { dI-=2; dC-=5; if (st.eventPressures) st.eventPressures.sommeil=2; applySante(st,cr.cible,-5,'épuisement'); st.dette.push({type:'evenement',eventId:'sommeil',jour:st.jour,cause:'dette de sommeil'}); shared.push('La relève a été maintenue malgré l’épuisement. Une erreur devient maintenant beaucoup plus probable, notamment sous tempête.'); }
+    } else if (cr.eventId==='medical') {
+      if (bonTech && bonCrew) { dC+=3; shared.push('Le malaise a été pris au sérieux sans immobiliser toute la station.'); tech.push({t:'good',txt:'La bonne fenêtre d’observation a permis de distinguer un incident transitoire d’une aggravation.'}); applySante(st,cr.cible,+10); applyMoral(st,cr.cible,+3); }
+      else if (bonTech || bonCrew) { dC-=1; applySante(st,cr.cible,+4); shared.push('On a stabilisé la situation, mais sans comprendre tout de suite ce qui l’avait provoquée.'); }
+      else { dI-=2; dC-=5; applySante(st,cr.cible,-10,'malaise mal pris en charge'); applyMoral(st,cr.cible,-8); shared.push('On a minimisé les signaux. Le malaise a laissé une trace.'); }
+    } else {
+      if (bonTech && bonCrew) { dC+=5; if (talentHas(st,'tech','palier1')) dI += 2; shared.push('La structure a été contenue sans envoyer quelqu’un inutilement dans la zone instable.'); }
+      else if (bonTech || bonCrew) { dI-=3; dC-=1; shared.push('La zone tient, mais une mauvaise coordination a coûté du matériel et du temps.'); }
+      else { dI-=8; dC-=5; shared.push('Le craquement était réel. La station a encaissé le mauvais choix.'); }
+      if (!bonTech) tech.push({t:'bad',txt:'La décision technique n’a pas traité le bon risque structurel.'}); else tech.push({t:'good',txt:'La réponse technique a contenu la zone.'});
+      if (!bonCrew) crewR.push({t:'warn',txt:'Le mouvement de l’équipage n’était pas adapté au risque.'}); else crewR.push({t:'good',txt:'L’équipage est resté hors de la zone dangereuse.'});
+    }
+    if (!bonTech && talentHas(st,'coop','coord2')) dC += 2;
+    if (cr.eventId === 'medical') {
+      if (bonTech && bonCrew) {
+        memoire(st, cr.cible, 'un malaise pris au sérieux');
+        var best = st.crew.filter(function(c){ return c.id !== cr.cible && c.etat !== 'perdu'; }).sort(function(a,b){ return relOf(st,cr.cible,b.id)-relOf(st,cr.cible,a.id); })[0];
+        if (best) { bumpRel(st, cr.cible, best.id, 1); memoire(st, best.id, 'a veillé sur ' + nomOf(st, cr.cible)); }
+      } else if (!bonTech && !bonCrew) {
+        memoire(st, cr.cible, 'un malaise minimisé');
+      }
+    }
+    if (cr.eventId === 'instrument' && !bonTech) memoire(st, cr.cible, 'une série scientifique laissée douteuse');
+    if (cr.eventId === 'eau' && !bonTech) memoire(st, cr.cible, 'une exposition à une eau douteuse');
+    if (cr.eventId === 'sommeil' && !bonCrew) memoire(st, cr.cible, 'une période d’épuisement');
+    if (cr.eventId === 'structure') memoire(st, cr.cible, bonTech && bonCrew ? 'une alerte structurelle bien gérée' : 'une alerte structurelle mal coordonnée');
+    if (bonTech && bonCrew) {
+      st.dette = st.dette.filter(function(d){ return !(d.type==='evenement' && d.eventId===cr.eventId); });
+    }
+    return {tech:tech,crew:crewR,shared:shared,dIntegrite:dI,dCohesion:dC,journal:{titre:cr.titre,txt:shared[0] || 'Incident contenu.',important:talentHas(st,'coop','memoire1') && (dI<0 || dC<0 || st.dette.some(function(d){return d.type==='evenement';}))}};
+  }
+
   /* ---------- effets sur l'équipage ---------- */
   function nomOf(st, id) { var c = st.crew.find(function (x) { return x.id === id; }); return c ? c.prenom : '?'; }
-  function genre(c) { return /a$|e$|ine$|ren$/i.test(c.prenom) ? 'elle' : 'il'; }
+  function genre(c) {
+    if (!c || !c.prenom) return 'il';
+    return ['Nadia', 'Wren', 'Soline', 'Mira'].indexOf(c.prenom) >= 0 ? 'elle' : 'il';
+  }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function applySante(st, id, d, motif) {
     var c = st.crew.find(function (x) { return x.id === id; });
     if (!c) return;
     c.sante = clamp(c.sante + d, 0, 100);
-    if (d < 0 && motif) c.bobo = motif;
+    if (d < 0 && motif) {
+      c.bobo = motif;
+      if (d <= -8) memoire(st, id, motif);
+    }
     if (c.sante <= 0) { c.etat = 'critique'; c.bobo = motif || c.bobo || 'état critique'; }
     else if (c.sante < 35 && c.etat === 'ok') { c.etat = 'malade'; c.bobo = motif || c.bobo; }
     else if (c.sante >= 70 && (c.etat === 'malade' || c.etat === 'critique')) { c.etat = 'ok'; c.bobo = null; }
@@ -1208,7 +2022,7 @@ td .att { color: var(--alerte); }
   }
 
   /* ---------- génération de la crise courante ---------- */
-  var TYPES = ['thermique', 'diagnostic', 'tempete'];
+  var TYPES = ['thermique', 'diagnostic', 'tempete', 'evenement'];
   function crisisFor(st) {
     if (st.fini) return null;
     var rng = makeRng(st.seed + '|crise|' + st.annee + '|' + st.session);
@@ -1219,14 +2033,18 @@ td .att { color: var(--alerte); }
     else {
       var choix = TYPES.filter(function (x) { return x !== st.lastType; });
       t = rng.pick(choix);
+      // Les événements émergent seulement après les trois crises d'introduction.
+      // Leur fréquence reste faible pour ne pas noyer la boucle coopérative.
+      if (t !== 'evenement' && rng.chance(0.24)) t = 'evenement';
     }
     // une dette de diagnostic non réglée revient, en pire
     var dette = st.dette.filter(function (d) { return d.type === 'diagnostic'; })[0];
-    if (dette && st.session > 1 && rng.chance(0.55)) t = 'diagnostic';
+    if (dette && st.session > 1 && rng.chance(0.65)) t = 'diagnostic';
 
     var cr = t === 'thermique' ? genThermique(st, rng)
       : t === 'diagnostic' ? genDiagnostic(st, rng, dette ? dette.cause : null)
-        : genTempete(st, rng);
+        : t === 'tempete' ? genTempete(st, rng)
+          : genEvenement(st, rng);
     if (t === 'diagnostic' && dette && cr.causeVraie === dette.cause) {
       cr.rappel = 'Ce n\'est pas nouveau : le même problème avait été laissé de côté au jour ' + dette.jour + '. Il est revenu, plus net.';
     }
@@ -1265,15 +2083,16 @@ td .att { color: var(--alerte); }
     if (o.id === 'REPOS') {
       st.crew.forEach(function (c) {
         if (c.etat === 'perdu') return;
-        var soin = st.modules.INFIRMERIE.built ? 22 : 12;
-        applySante(st, c.id, soin); applyMoral(st, c.id, 10);
+        var soin = st.modules.INFIRMERIE.built ? 18 : 10;
+        if (talentHas(st,'equipage','froid1')) soin += 2;
+        applySante(st, c.id, soin); applyMoral(st, c.id, talentHas(st,'equipage','fatigue2') ? 13 : 10);
       });
-      st.cohesion = clamp(st.cohesion + 5, 0, 100);
+      st.cohesion = clamp(st.cohesion + 4, 0, 100);
       out.push('Semaine de répit. Les visages ont changé.');
     } else if (o.id === 'REPARER') {
       var m = st.modules[o.cible];
       m.dmg = 0;
-      st.integrite = clamp(st.integrite + 11, 0, 100);
+      st.integrite = clamp(st.integrite + (talentHas(st,'tech','maint2') ? 13 : 11), 0, 100);
       out.push(m.nom + ' remis en service.');
     } else if (o.id === 'OUVRIR') {
       st.chantier = o.cible; st.chantierFait = 1;
@@ -1304,20 +2123,23 @@ td .att { color: var(--alerte); }
       if (!serre) applyMoral(st, c.id, -3);
       if (c.etat === 'malade') applySante(st, c.id, st.modules.INFIRMERIE.built ? +6 : -4);
       else if (c.etat === 'blesse') applySante(st, c.id, st.modules.INFIRMERIE.built ? +9 : +4);
-      else applySante(st, c.id, +5);
+      else applySante(st, c.id, +1);
       if (c.sante > 62 && (c.etat === 'blesse' || c.etat === 'malade')) { c.etat = 'ok'; c.bobo = null; }
     });
     var moyMoral = st.crew.reduce(function (s, c) { return s + c.moral; }, 0) / st.crew.length;
-    st.cohesion = clamp(Math.round(st.cohesion * 0.72 + moyMoral * 0.28), 0, 100);
+    st.cohesion = clamp(Math.round(st.cohesion * 0.82 + moyMoral * 0.18), 0, 100);
+    // Usure structurelle : même une bonne semaine coûte un peu à la station.
+    st.integrite = clamp(st.integrite - 4, 0, 100);
     var dmg = Object.keys(st.modules).reduce(function (s, k) { return s + (st.modules[k].built ? st.modules[k].dmg : 0); }, 0);
-    st.integrite = clamp(st.integrite - dmg * 2, 0, 100);
+    st.integrite = clamp(st.integrite - dmg * (talentHas(st,'tech','maint1') ? 1 : 2), 0, 100);
   }
 
   function resolve(st, cr, dec) {
     var rng = makeRng(st.seed + '|res|' + st.annee + '|' + st.session + '|' + dec.join(','));
     var r = cr.type === 'thermique' ? resThermique(st, cr, dec, rng)
       : cr.type === 'diagnostic' ? resDiagnostic(st, cr, dec, rng)
-        : resTempete(st, cr, dec, rng);
+        : cr.type === 'tempete' ? resTempete(st, cr, dec, rng)
+          : resEvenement(st, cr, dec, rng);
 
     st.integrite = clamp(st.integrite + r.dIntegrite, 0, 100);
     st.cohesion = clamp(st.cohesion + r.dCohesion, 0, 100);
@@ -1331,6 +2153,11 @@ td .att { color: var(--alerte); }
     }
     var semaine = applySemaine(st, cr, dec[dec.length - 1]);
     derive(st);
+    if (st.eventPressures) ['instrument','eau','sommeil'].forEach(function(k){ st.eventPressures[k] = Math.max(0, st.eventPressures[k] - 1); });
+
+    var perfect = r.dIntegrite === 0 && r.dCohesion > 0;
+    grantProgression(st, {tech:cr.type !== 'diagnostic' ? 1 : 0, equipage:cr.type === 'diagnostic' ? 1 : 0, coop:perfect ? 1 : 0});
+    if(perfect && talentHas(st,'coop','coord1')) st.cohesion=clamp(st.cohesion+1,0,100);
 
     // état critique prolongé
     st.crew.forEach(function (c) {
@@ -1344,9 +2171,18 @@ td .att { color: var(--alerte); }
       } else if (c.etat !== 'critique') { c._criseDepuis = null; }
     });
 
+    if (talentHas(st,'coop','memoire2') && st.dette.length) {
+      var detteMemo = st.dette[0];
+      r.shared.push('Mémoire de station : le dossier rappelle une dette non réglée depuis le jour ' + detteMemo.jour + '.');
+    }
+
+    if (talentHas(st,'equipage','psy2')) {
+      var rk = Object.keys(st.rel).sort(function(a,b){ return st.rel[a]-st.rel[b]; })[0];
+      if (rk && st.rel[rk] < 3) st.rel[rk] = Math.min(3, st.rel[rk] + 1);
+    }
     st.journal.push({
       jour: st.jour, annee: st.annee, titre: r.journal.titre, txt: r.journal.txt,
-      semaine: semaine.join(' '), integrite: st.integrite, cohesion: st.cohesion
+      semaine: semaine.join(' '), integrite: st.integrite, cohesion: st.cohesion, important: talentHas(st,'coop','memoire1') && (st.integrite < 60 || st.cohesion < 55 || st.dette.length > 0)
     });
     st.lastType = cr.type;
     st.session += 1;
@@ -1365,6 +2201,11 @@ td .att { color: var(--alerte); }
     var resolutions = [];
     for (var i = 0; i < codes.length; i++) {
       if (codes[i] === '*') { nouvelHiver(st); continue; }
+      if (typeof codes[i] === 'string' && codes[i].indexOf('S:') === 0) {
+        var parts = codes[i].split(':');
+        if (parts.length === 3) buyTalent(st, parts[1], parts[2]);
+        continue;
+      }
       var cr = crisisFor(st);
       if (!cr) break;
       var dec = unpackCode(codes[i], cr.widths);
@@ -1379,8 +2220,11 @@ td .att { color: var(--alerte); }
     var survivants = st.crew.filter(function (c) { return c.etat !== 'perdu'; });
     st.annee += 1; st.jour = 1; st.session = 0; st.fini = false; st.issue = null;
     st.dette = []; st.lastType = null;
+    st.eventPressures = {instrument:0, eau:0, sommeil:0};
     st.crew = survivants;
-    st.integrite = clamp(st.integrite - 6, 25, 100);
+    st.integrite = clamp(st.integrite - 7, 25, 100);
+    if (!st.progression) st.progression = progressionBase();
+    st.progression.tech.points += 2; st.progression.equipage.points += 2; st.progression.coop.points += 2;
     Object.keys(st.modules).forEach(function (k) { if (st.modules[k].built) st.modules[k].dmg = Math.max(0, st.modules[k].dmg - 1); });
     return st;
   }
@@ -1390,7 +2234,7 @@ td .att { color: var(--alerte); }
     normCode: normCode, stateCode: stateCode, emitCode: emitCode, readCode: readCode,
     initialState: initialState, crisisFor: crisisFor, resolve: resolve, replay: replay,
     nouvelHiver: nouvelHiver, actifs: actifs, habitables: habitables, relOf: relOf,
-    CAUSES: CAUSES, FIXES: FIXES, SKILL_LABEL: SKILL_LABEL, CHANTIERS: CHANTIERS,
+    CAUSES: CAUSES, FIXES: FIXES, SKILL_LABEL: SKILL_LABEL, CHANTIERS: CHANTIERS, TALENTS:TALENTS, progressionBase:progressionBase, talentDef:talentDef, talentHas:talentHas, talentCanBuy:talentCanBuy, buyTalent:buyTalent,
     JOURS_HIVER: JOURS_HIVER, tempAt: tempAt, genre: genre
   };
 })(typeof module !== 'undefined' && module.exports ? module.exports : (typeof window !== 'undefined' ? window : globalThis));
@@ -1427,14 +2271,15 @@ td .att { color: var(--alerte); }
   function $(id) { return document.getElementById(id); }
 
   /* ---------- sauvegarde ---------- */
-  var save = { seed: null, decisions: [], poste: null };
+  var save = { seed: null, decisions: [], poste: null, p2pRole: null, hostPeerId: null, peerId: null, pendingLocal: null, skillOps: [], storySeen: true };
   function charger() {
     try {
       var raw = localStorage.getItem(CLE);
       if (!raw) return false;
       var o = JSON.parse(raw);
-      if (!o || !o.seed) return false;
-      save = { seed: o.seed, decisions: o.decisions || [], poste: o.poste || null };
+      if (!o || (!o.seed && !(o.p2pRole === 'guest' && o.hostPeerId))) return false;
+      save = { seed: o.seed || null, decisions: o.decisions || [], poste: o.poste || null, p2pRole: o.p2pRole || null, hostPeerId: o.hostPeerId || null, peerId: o.peerId || null, pendingLocal: o.pendingLocal || null, skillOps: Array.isArray(o.skillOps) ? o.skillOps.slice() : [], storySeen: o.storySeen !== false };
+      p2pSaveShape();
       return true;
     } catch (e) { return false; }
   }
@@ -1445,6 +2290,569 @@ td .att { color: var(--alerte); }
 
   /* ---------- état courant ---------- */
   var st = null, cr = null, dec = null, ecranCourant = 'accueil';
+
+  /* ---------- coopération P2P ----------
+     Le moteur reste identique : l'hôte garde la sauvegarde autoritaire,
+     et la connexion WebRTC/PeerJS ne transporte que les décisions et l'état.
+     PeerJS sert uniquement à établir le lien ; les données de jeu passent
+     ensuite directement entre les deux navigateurs. */
+  var net = {
+    peer: null,
+    conn: null,
+    role: null,
+    connected: false,
+    remotePoste: null,
+    connecting: false
+  };
+
+  function nouveauPeerId() {
+    var a = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ', out = 'boree-';
+    var bytes = null;
+    try {
+      if (crypto && crypto.getRandomValues) { bytes = new Uint8Array(8); crypto.getRandomValues(bytes); }
+    } catch (e) { bytes = null; }
+    for (var i = 0; i < 8; i++) out += a[(bytes ? bytes[i] : Math.floor(Math.random() * 256)) % a.length];
+    return out;
+  }
+
+  function p2pSaveShape() {
+    if (!save) save = {};
+    if (save.p2pRole !== 'host' && save.p2pRole !== 'guest') save.p2pRole = null;
+    if (save.hostPeerId == null) save.hostPeerId = null;
+    if (!save.pendingLocal || typeof save.pendingLocal !== 'object') save.pendingLocal = null;
+  }
+
+  function p2pStatusText() {
+    if (!save || !save.p2pRole) return null;
+    if (net.connected) return 'P2P · connecté';
+    if (net.connecting) return 'P2P · connexion…';
+    if (save.p2pRole === 'host') return 'P2P · en attente';
+    return 'P2P · hors ligne';
+  }
+
+  function rafraichirBarre() {
+    try { barre(); } catch (e) { /* démarrage : barre pas encore prête */ }
+  }
+
+  function p2pSetStatus() {
+    rafraichirBarre();
+    try {
+      if (ecranCourant === 'hub') rendreHub();
+      else if (ecranCourant === 'crise') rendreCrise();
+      else if (ecranCourant === 'transmission') rendreTransmissionAttente();
+    } catch (e) { /* rendu non critique */ }
+  }
+
+  function p2pSend(msg) {
+    if (!net.conn || !net.conn.open) return false;
+    try { net.conn.send(msg); return true; } catch (e) { return false; }
+  }
+
+  function p2pCloseConn() {
+    try { if (net.conn) net.conn.close(); } catch (e) {}
+    net.conn = null;
+    net.connected = false;
+    net.connecting = false;
+  }
+
+  function p2pDestroy() {
+    p2pCloseConn();
+    try { if (net.peer) net.peer.destroy(); } catch (e) {}
+    net.peer = null;
+  }
+
+  /* ---------- manche de décision asymétrique ----------
+     Le moteur reste inchangé. Chaque poste ne verrouille que la partie
+     de la décision qui lui appartient, puis l'hôte fusionne les deux. */
+  var round = {
+    key: null,
+    localSubmitted: false,
+    remoteSubmitted: false,
+    localDec: null,
+    remoteDec: null,
+    remotePoste: null
+  };
+
+  function roundKey() {
+    return cr ? [save.seed, st.annee, st.session, cr.type].join('|') : null;
+  }
+
+  function roleForIndex(crise, idx, role) {
+    if (!crise) return false;
+    if (role === 'demo') return true;
+    if (crise.type === 'thermique') {
+      var nbm = crise.mods.length;
+      if (idx < nbm) return role === 'tech';
+      if (idx < nbm + crise.eq.length) return role === 'equipage';
+      return role === 'tech';
+    }
+    if (crise.type === 'diagnostic') {
+      if (idx === 0) return role === 'equipage';
+      if (idx === 1) return role === 'tech';
+      return role === 'equipage';
+    }
+    if (idx < crise.taches.length) {
+      return ['mecanique', 'electricite', 'soudure'].indexOf(crise.taches[idx].sk) >= 0
+        ? role === 'tech' : role === 'equipage';
+    }
+    return role === 'equipage';
+  }
+
+  function indicesDuRole(crise, role) {
+    var out = [];
+    if (!crise || !role) return out;
+    for (var i = 0; i < crise.widths.length; i++) {
+      if (roleForIndex(crise, i, role)) out.push(i);
+    }
+    return out;
+  }
+
+  function initialiserRound(force) {
+    var k = roundKey();
+    if (!k) return;
+    if (force || round.key !== k) {
+      round = {
+        key: k,
+        localSubmitted: false,
+        remoteSubmitted: false,
+        localDec: cr.defaut.slice(),
+        remoteDec: null,
+        remotePoste: net.remotePoste || null
+      };
+      if (save.pendingLocal && save.pendingLocal.key === k && Array.isArray(save.pendingLocal.values)) {
+        var idxs = indicesDuRole(cr, save.poste);
+        save.pendingLocal.values.forEach(function (v) {
+          if (idxs.indexOf(v.i) >= 0) round.localDec[v.i] = v.v;
+        });
+        round.localSubmitted = !!save.pendingLocal.submitted;
+      }
+    }
+    if (!round.localDec || round.localDec.length !== cr.defaut.length) round.localDec = cr.defaut.slice();
+    dec = round.localDec;
+  }
+
+  function roundSnapshot() {
+    initialiserRound(false);
+    return round.key ? { key: round.key, hostReady: net.role === 'host' ? !!round.localSubmitted : !!round.remoteSubmitted } : null;
+  }
+
+  function sauvegarderPendingLocal() {
+    if (!round.key || !cr) return;
+    var idxs = indicesDuRole(cr, save.poste);
+    save.pendingLocal = {
+      key: round.key,
+      submitted: !!round.localSubmitted,
+      values: idxs.map(function (i) { return { i: i, v: round.localDec[i] }; })
+    };
+    enregistrer();
+  }
+
+  function effacerPendingLocal() {
+    save.pendingLocal = null;
+    enregistrer();
+  }
+
+  function accepterSoumissionDistante(values, role, key) {
+    if (!cr || key !== roundKey() || !Array.isArray(values)) return false;
+    var expected = indicesDuRole(cr, role);
+    var base = (round.remoteDec && round.remoteDec.length === cr.defaut.length) ? round.remoteDec.slice() : cr.defaut.slice();
+    var seen = {};
+    for (var i = 0; i < values.length; i++) {
+      var item = values[i];
+      if (!item || expected.indexOf(item.i) < 0 || seen[item.i]) return false;
+      var width = cr.widths[item.i];
+      var max = (1 << width) - 1;
+      if (!Number.isInteger(item.v) || item.v < 0 || item.v > max) return false;
+      seen[item.i] = true;
+      base[item.i] = item.v;
+    }
+    for (var j = 0; j < expected.length; j++) if (!seen[expected[j]]) return false;
+    round.remoteDec = base;
+    round.remotePoste = role;
+    round.remoteSubmitted = true;
+    return true;
+  }
+
+  function decisionCombinee() {
+    if (!round.localDec || !round.remoteDec || !round.remotePoste) return null;
+    var out = round.localDec.slice();
+    indicesDuRole(cr, round.remotePoste).forEach(function (i) { out[i] = round.remoteDec[i]; });
+    return out;
+  }
+
+  function roundStateMeta() {
+    initialiserRound(false);
+    var local = !!round.localSubmitted, remote = !!round.remoteSubmitted;
+    if (!net.connected) return { cls:'offline', label:'MODE LOCAL', text:'Connexion absente · la transmission manuelle reste disponible.' };
+    if (local && remote) return { cls:'ready', label:'RÉSOLU', text:'Les deux postes sont verrouillés. La station va appliquer la décision.' };
+    if (local) return { cls:'waiting', label:'EN ATTENTE', text:'Ta décision est verrouillée. Ton partenaire doit encore valider son poste.' };
+    if (remote) return { cls:'your-turn', label:'À TOI', text:'Le partenaire a verrouillé sa partie. Termine la tienne pour résoudre la crise.' };
+    return { cls:'active', label:'À TOI', text:'Prépare uniquement les décisions qui appartiennent à ton poste.' };
+  }
+
+  function phaseCriseUI() {
+    var meta = roundStateMeta();
+    var labels = ['RAPPORT','PRÉPARATION','VERROUILLAGE','RÉSOLUTION'];
+    var current = meta.cls === 'ready' ? 4 : meta.cls === 'waiting' ? 3 : (meta.cls === 'your-turn' || meta.cls === 'active') ? 2 : 1;
+    var bar = H('div',{class:'boree-phasebar','aria-label':'Progression de la crise'});
+    labels.forEach(function(label,i){
+      var n=i+1, cls=n<current?'done':n===current?'current':'';
+      bar.appendChild(H('div',{class:'boree-phase '+cls}, H('span',{class:'boree-phase-num',text:String(n)}), H('span',{class:'boree-phase-label',text:label})));
+    });
+    return H('div',{class:'boree-crise-status '+meta.cls},
+      H('div',{class:'boree-status-main'}, H('strong',{text:meta.label}), H('span',{text:meta.text})), bar
+    );
+  }
+
+  function roundReadyText() {
+    initialiserRound(false);
+    if (!net.connected) return 'Connexion absente.';
+    if (round.localSubmitted && round.remoteSubmitted) return 'Les deux décisions sont verrouillées. Résolution…';
+    if (round.localSubmitted) return 'Ta partie est verrouillée. En attente du partenaire.';
+    if (round.remoteSubmitted) return 'Le partenaire a validé sa partie. À toi de verrouiller la tienne.';
+    return 'Chacun prépare sa partie de la décision.';
+  }
+
+  function roundSubmitValues() {
+    initialiserRound(false);
+    return indicesDuRole(cr, save.poste).map(function (i) { return { i: i, v: round.localDec[i] }; });
+  }
+
+  function p2pResendPending() {
+    if (net.role !== 'guest' || !net.connected || !save.pendingLocal || !cr) return;
+    if (save.pendingLocal.key !== roundKey() || !save.pendingLocal.submitted) return;
+    p2pSend({ type: 'submit', key: roundKey(), poste: save.poste, values: save.pendingLocal.values });
+  }
+
+  function p2pSnapshot(extra) {
+    var m = {
+      type: 'snapshot',
+      seed: save.seed,
+      decisions: (save.decisions || []).slice(),
+      hostPoste: save.poste || null,
+      stateCode: save.seed ? B.stateCode(save) : null,
+      round: roundSnapshot(), skillOps:(save.skillOps||[]).slice()
+    };
+    if (extra) Object.keys(extra).forEach(function (k) { m[k] = extra[k]; });
+    return m;
+  }
+
+  function p2pSendSnapshot() {
+    if (net.role !== 'host') return;
+    p2pSend(p2pSnapshot());
+  }
+
+  function p2pBindConnection(conn, incoming) {
+    if (net.conn && net.conn !== conn) {
+      try { conn.close(); } catch (e) {}
+      return;
+    }
+    net.conn = conn;
+    net.connecting = true;
+    conn.on('open', function () {
+      net.connected = true;
+      net.connecting = false;
+      p2pSetStatus();
+      if (net.role === 'guest') {
+        p2pSend({ type: 'hello', seed: save.seed || null, poste: save.poste || null, protocol: 3 });
+        setTimeout(p2pResendPending, 120);
+      }
+    });
+    conn.on('data', p2pHandleMessage);
+    conn.on('close', function () {
+      if (net.conn !== conn) return;
+      net.conn = null;
+      net.connected = false;
+      net.connecting = false;
+      p2pSetStatus();
+    });
+    conn.on('error', function () {
+      if (net.conn !== conn) return;
+      net.connected = false;
+      net.connecting = false;
+      p2pSetStatus();
+    });
+  }
+
+  function p2pHostAccept(conn) {
+    if (net.role !== 'host') return;
+    p2pBindConnection(conn, true);
+  }
+
+  function p2pConnectToHost() {
+    if (net.role !== 'guest' || !save.hostPeerId || !net.peer || net.peer.destroyed) return;
+    if (net.conn && (net.conn.open || net.connecting)) return;
+    net.connecting = true;
+    p2pSetStatus();
+    try {
+      var conn = net.peer.connect(save.hostPeerId, {
+        reliable: true,
+        metadata: { seed: save.seed || null, poste: save.poste || null }
+      });
+      p2pBindConnection(conn, false);
+    } catch (e) {
+      net.connecting = false;
+      net.connected = false;
+      p2pSetStatus();
+    }
+  }
+
+  function p2pInit() {
+    p2pSaveShape();
+    if (!save.p2pRole || !window.Peer) return;
+    if (net.peer && !net.peer.destroyed) return;
+    net.role = save.p2pRole;
+    net.connected = false;
+    net.connecting = false;
+
+    try {
+      var peerId = net.role === 'host' ? save.hostPeerId : undefined;
+      net.peer = peerId ? new Peer(peerId) : new Peer();
+    } catch (e) {
+      net.peer = null;
+      p2pSetStatus();
+      return;
+    }
+
+    net.peer.on('open', function (id) {
+      if (net.role === 'host') save.hostPeerId = id;
+      save.peerId = id;
+      enregistrer();
+      p2pSetStatus();
+      if (net.role === 'guest') {
+        setTimeout(p2pConnectToHost, 80);
+      }
+    });
+    net.peer.on('connection', p2pHostAccept);
+    net.peer.on('disconnected', function () {
+      /* La connexion P2P peut rester vivante ; si elle se ferme, le bouton
+         de reconnexion dans Synchronisation relance le lien. */
+      if (!net.connected) net.connecting = false;
+      p2pSetStatus();
+    });
+    net.peer.on('error', function () {
+      net.connecting = false;
+      if (net.role === 'guest') p2pCloseConn();
+      p2pSetStatus();
+    });
+  }
+
+  function p2pRoleChanged(p) {
+    round.key = null;
+    save.pendingLocal = null;
+    enregistrer();
+    if (!save.p2pRole || !net.connected) return;
+    p2pSend({ type: 'role', poste: p });
+  }
+
+  function p2pHandleSnapshot(msg) {
+    if (net.role !== 'guest') return;
+    if (!msg.seed) return;
+    save.seed = msg.seed;
+    save.decisions = Array.isArray(msg.decisions) ? msg.decisions.slice() : [];
+    save.skillOps = Array.isArray(msg.skillOps) ? msg.skillOps.slice() : [];
+    if (!save.poste && msg.hostPoste) net.remotePoste = msg.hostPoste;
+    save.hostPeerId = save.hostPeerId || (net.conn && net.conn.peer) || null;
+    enregistrer();
+    try { recalculer(); } catch (e) { return; }
+    if (save.storySeen === false) { rendreIntro(); aller('intro'); return; }
+    initialiserRound(true);
+    if (msg.round && msg.round.key === round.key) round.remoteSubmitted = !!msg.round.hostReady;
+    p2pSetStatus();
+    if (!save.poste) {
+      rendrePoste(); aller('poste');
+    } else if (st.fini) {
+      rendreFin(); aller('fin');
+    } else if (ecranCourant === 'poste' || ecranCourant === 'accueil' || ecranCourant === 'hub') {
+      rendreHub(); aller('hub');
+    }
+  }
+
+  function p2pApplyResolved(msg) {
+    if (net.role !== 'guest') return;
+    if (!msg || !msg.seed) return;
+    save.seed = msg.seed;
+    save.decisions = Array.isArray(msg.decisions) ? msg.decisions.slice() : [];
+    save.skillOps = Array.isArray(msg.skillOps) ? msg.skillOps.slice() : [];
+    save.pendingLocal = null;
+    enregistrer();
+    try { recalculer(); } catch (e) { return; }
+    round.key = null;
+    if (msg.result && msg.cr) {
+      rendreResolution(msg.result, msg.cr, msg.avant || { integrite: st.integrite, cohesion: st.cohesion });
+      aller('resolution');
+      cr = B.crisisFor(st);
+      dec = cr ? cr.defaut.slice() : null;
+    } else if (st.fini) {
+      rendreFin(); aller('fin');
+    } else {
+      rendreHub(); aller('hub');
+    }
+  }
+
+  function p2pHandleMessage(msg) {
+    if (!msg || !msg.type) return;
+
+    if (msg.type === 'hello' && net.role === 'host') {
+      net.remotePoste = msg.poste || null;
+      p2pSendSnapshot();
+      p2pSetStatus();
+      return;
+    }
+
+    if (msg.type === 'role' && net.role === 'host') {
+      net.remotePoste = msg.poste || null;
+      p2pSendSnapshot();
+      p2pSetStatus();
+      return;
+    }
+
+    if (msg.type === 'submit' && net.role === 'host') {
+      if (!st || !cr || st.fini) return;
+      initialiserRound(false);
+      // Le poste annoncé dans le message doit correspondre au poste négocié
+      // lors du handshake. Sinon un client malveillant pourrait soumettre
+      // les indices appartenant à l'autre joueur.
+      if (!msg.poste || !net.remotePoste || msg.poste !== net.remotePoste || msg.poste === save.poste || !accepterSoumissionDistante(msg.values, msg.poste, msg.key)) {
+        p2pSend({ type: 'error', message: 'Décision reçue hors synchronisation.' });
+        return;
+      }
+      p2pSend({ type: 'round_status', key: round.key, hostReady: !!round.localSubmitted, guestReady: true });
+      if (round.localSubmitted && round.remoteSubmitted) roundResolveHost();
+      else p2pSetStatus();
+      return;
+    }
+
+    if (msg.type === 'round_status' && net.role === 'guest') {
+      if (!cr || msg.key !== roundKey()) return;
+      round.remoteSubmitted = !!msg.hostReady;
+      p2pSetStatus();
+      return;
+    }
+
+    if (msg.type === 'decision' && net.role === 'host') {
+      /* Compatibilité avec les anciennes parties utilisant encore le code. */
+      if (!st || !cr || st.fini) return;
+      var r = B.readCode(st, cr, msg.code || '');
+      if (!r) {
+        p2pSend({ type: 'error', message: 'Décision reçue hors synchronisation.' });
+        return;
+      }
+      dec = r.dec;
+      appliquer(r.payload);
+      return;
+    }
+
+    if (msg.type === 'resolved' && net.role === 'guest') {
+      p2pApplyResolved(msg);
+      return;
+    }
+
+    if (msg.type === 'skill_upgrade' && net.role === 'host') {
+      if (!st || st.fini || ['tech','equipage','coop'].indexOf(msg.branch)<0) return;
+      // Un invité ne peut acheter que les branches qui lui appartiennent
+      // (la coopération est partagée). Le serveur hôte reste l'autorité.
+      var branchAllowed = msg.branch === 'coop' || msg.branch === net.remotePoste;
+      if (!branchAllowed) { p2pSend({type:'error',message:'Branche de compétence non autorisée pour ce poste.'}); return; }
+      var bought=B.buyTalent(st,msg.branch,String(msg.id||''));
+      if(!bought.ok){p2pSend({type:'error',message:'Compétence indisponible ou points insuffisants.'});return;}
+      save.skillOps=Array.isArray(save.skillOps)?save.skillOps:[]; save.skillOps.push({branch:msg.branch,id:String(msg.id)}); save.decisions.push('S:'+msg.branch+':'+String(msg.id)); enregistrer(); p2pSendSnapshot(); rendreHub(); aller('hub'); return;
+    }
+
+    if (msg.type === 'new_winter' && net.role === 'host') {
+      if (!st || st.issue !== 'printemps') return;
+      passerHiverLocal(true);
+      return;
+    }
+
+    if (msg.type === 'error' && net.role === 'guest') {
+      alert(msg.message || 'La station a refusé la décision.');
+      return;
+    }
+
+    if (msg.type === 'ping') p2pSend({ type: 'pong' });
+  }
+
+  function roundResolveHost() {
+    if (net.role !== 'host' || !cr || !round.localSubmitted || !round.remoteSubmitted) return;
+    if (round.key !== roundKey()) return;
+    var combined = decisionCombinee();
+    if (!combined) return;
+    dec = combined.slice();
+    var payload = B.packCode(dec, cr.widths);
+    var crSauve = cr;
+    var decSauve = dec.slice();
+    var avant = { integrite: st.integrite, cohesion: st.cohesion };
+    round.key = null;
+    round.localSubmitted = false;
+    round.remoteSubmitted = false;
+    round.localDec = null;
+    round.remoteDec = null;
+    effacerPendingLocal();
+    appliquer(payload, false, crSauve, decSauve, avant);
+  }
+
+  function validerDecision() {
+    if (!cr || !dec) return;
+    initialiserRound(false);
+    if (net.connected && save.p2pRole !== 'demo') {
+      if (round.localSubmitted) return;
+      round.localSubmitted = true;
+      round.localDec = dec.slice();
+      sauvegarderPendingLocal();
+      if (net.role === 'host') {
+        p2pSend({ type: 'round_status', key: round.key, hostReady: true, guestReady: !!round.remoteSubmitted });
+        if (round.remoteSubmitted) roundResolveHost();
+        else { rendreTransmissionAttente(); aller('transmission'); }
+      } else {
+        if (!p2pSend({ type: 'submit', key: round.key, poste: save.poste, values: roundSubmitValues() })) {
+          round.localSubmitted = false;
+          sauvegarderPendingLocal();
+        }
+        rendreTransmissionAttente(); aller('transmission');
+      }
+      return;
+    }
+    rendreTransmission(); aller('transmission');
+  }
+
+  function rendreTransmissionAttente() {
+    var box = vide($('ecran-transmission'));
+    box.appendChild(H('div', { class: 'pile' },
+      H('div', {},
+        H('span', { class: 'etiquette', text: 'Transmission P2P' }),
+        H('h2', { class: 'titre-bloc', text: 'Décision envoyée' })
+      ),
+      H('div', { class: 'boree-wait-state' },
+        H('div', { class: 'boree-wait-dot' }),
+        H('div', {},
+          H('strong', { text: round.localSubmitted && round.remoteSubmitted ? 'RÉSOLUTION EN COURS' : 'EN ATTENTE DU PARTENAIRE' }),
+          H('span', { text: roundReadyText() })
+        )
+      ),
+      H('p', { class: 'prose', text: 'Ton poste est verrouillé. Tu peux relire le rapport pendant que l’autre téléphone termine sa décision.' }),
+      H('button', { class: 'btn-large btn-discret', onclick: function () { rendreCrise(); aller('crise'); } }, 'Revenir au rapport')
+    ));
+  }
+
+  function passerHiverLocal(broadcast) {
+    save.decisions.push('*');
+    enregistrer();
+    recalculer();
+    if (broadcast && net.role === 'host' && net.connected) p2pSendSnapshot();
+    if (st.fini) { rendreFin(); aller('fin'); }
+    else { rendreHub(); aller('hub'); }
+  }
+
+  function passerHiver() {
+    if (net.connected && net.role === 'guest') {
+      p2pSend({ type: 'new_winter' });
+      rendreTransmissionAttente(); aller('transmission');
+      return;
+    }
+    passerHiverLocal(false);
+  }
+
 
   function recalculer() {
     st = B.replay(save.seed, save.decisions);
@@ -1582,6 +2990,9 @@ td .att { color: var(--alerte); }
         text: save.poste === 'tech' ? 'Poste technique' : save.poste === 'equipage' ? 'Poste équipage' : 'Démo'
       }));
     }
+    var p2pLabel = p2pStatusText();
+    if (p2pLabel) b.appendChild(H('span', { class: 'poste', text: p2pLabel }));
+    if (save.seed && ecranCourant !== 'accueil') b.appendChild(H('button', { class: 'barre-action', title: 'Menu de station', 'aria-label': 'Menu de station', onclick: ouvrirMenu }, '☰'));
     if (st && save.seed) {
       b.appendChild(H('span', {
         class: 'jour',
@@ -1594,12 +3005,112 @@ td .att { color: var(--alerte); }
   /* ---------- navigation ---------- */
   function aller(nom) {
     ecranCourant = nom;
-    ['accueil', 'regles', 'poste', 'hub', 'crise', 'transmission', 'resolution', 'journal', 'fin'].forEach(function (e) {
+    try { document.documentElement.setAttribute('data-screen', nom); } catch (e) {}
+    ['accueil', 'intro', 'regles', 'poste', 'hub', 'dossier', 'progression', 'crise', 'transmission', 'resolution', 'journal', 'sync', 'fin'].forEach(function (e) {
       var el = $('ecran-' + e);
       if (el) el.classList.toggle('actif', e === nom);
     });
     barre();
+    rendreNavigation();
     window.scrollTo(0, 0);
+  }
+
+  function ouvrirMenu(){
+    var m=$('menu-jeu'); if(!m)return;
+    var stn=$('menu-station'); if(stn)stn.textContent=save.seed?'Station '+save.seed:'Borée';
+    var c=$('menu-corps'); if(!c)return; c.innerHTML='';
+    function sec(t){c.appendChild(H('div',{class:'menu-section',text:t}));}
+    function item(label,sub,fn){c.appendChild(H('button',{class:'menu-item',onclick:function(){fermerMenu();fn();}},H('span',{text:label}),sub?H('small',{text:sub}):null));}
+    sec('Station');
+    item('Poste de commandement','vue principale',function(){rendreHub();aller('hub');});
+    item('Dossier','systèmes et équipage',function(){rendreDossier();aller('dossier');});
+    item('Progression','compétences',function(){rendreProgression();aller('progression');});
+    item('Journal','histoire de la station',function(){rendreJournal();aller('journal');});
+    sec('Système');
+    item('Synchronisation',net.connected?'connecté':'hors ligne',function(){rendreSync();});
+    item('Règles','rappel rapide',function(){rendreRegles();aller('regles');});
+    sec('Station');
+    item('Quitter la station','retour au titre',function(){rendreAccueil();aller('accueil');});
+    m.classList.add('open');m.setAttribute('aria-hidden','false');
+  }
+  function fermerMenu(){var m=$('menu-jeu');if(!m)return;m.classList.remove('open');m.setAttribute('aria-hidden','true');}
+  function rendreNavigation(){
+    var n=$('nav-jeu'); if(!n)return;
+    var visible=!!save.seed && ['hub','dossier','progression','journal','resolution','crise','sync'].indexOf(ecranCourant)>=0;
+    n.classList.toggle('visible',visible); if(!visible){n.innerHTML='';return;}
+    n.innerHTML='';
+    var items=[['hub','Station','⌂'],['crise','Crise','!'],['dossier','Dossier','▤'],['journal','Journal','≡']];
+    items.forEach(function(it){var active=ecranCourant===it[0] || (it[0]==='hub'&&['crise','resolution','sync'].indexOf(ecranCourant)>=0);var b=H('button',{class:active?'active':'',onclick:function(){if(it[0]==='hub'){rendreHub();aller('hub');}else if(it[0]==='dossier'){rendreDossier();aller('dossier');}else if(it[0]==='progression'){rendreProgression();aller('progression');}else if(it[0]==='crise'){cr=B.crisisFor(st);dec=cr?cr.defaut.slice():null;rendreCrise();aller('crise');}else{rendreJournal();aller('journal');}}},H('span',{text:it[2]}),H('strong',{text:it[1]}));n.appendChild(b);});
+  }
+
+  /* ============================================================
+     INTRODUCTION — arrivée à la station Borée
+     ============================================================ */
+  var introIndex = 0;
+  var INTRO_SCENES = [
+    {
+      kicker:'Juillet · côte arctique', title:'Le dernier ravitaillement',
+      text:'Après trois jours de navigation depuis la base logistique, le cargo scientifique atteint enfin la banquise. <strong>Borée</strong> n’est pas une base militaire ni un refuge : c’est une station de recherche conçue pour rester occupée pendant la nuit polaire.',
+      chips:['Expédition scientifique','Station isolée','Départ : été']
+    },
+    {
+      kicker:'Mission B-17 · océan Arctique', title:'Mesurer l’hiver',
+      text:'L’équipe doit poursuivre des mesures impossibles à interrompre en hiver : circulation de l’air, échanges de chaleur sous la glace, chimie de l’eau et dynamique du manteau neigeux. Les instruments doivent fonctionner <strong>sans interruption pendant 54 jours</strong>.',
+      chips:['Atmosphère','Glace de mer','Océan','54 jours']
+    },
+    {
+      kicker:'Dernières heures de lumière', title:'La station se referme',
+      text:'Les caisses repartent avec le cargo. Les antennes sont vérifiées, les réserves comptées, les générateurs testés. Dans quelques heures, la lumière directe disparaîtra pour de bon. À partir de maintenant, <strong>chaque intervention coûte du temps, de l’énergie ou de la sécurité</strong>.',
+      chips:['Énergie','Maintenance','Réserves']
+    },
+    {
+      kicker:'Équipage · 5 personnes', title:'Deux regards sur un même problème',
+      text:'Pour éviter les erreurs, le travail est séparé en deux postes. Le <strong>poste technique</strong> surveille les machines, les capteurs et la structure. Le <strong>poste équipage</strong> suit les personnes, leurs compétences, leur fatigue et leur état. Chacun détient une moitié du tableau.',
+      chips:['Poste technique','Poste équipage','Information asymétrique']
+    },
+    {
+      kicker:'Jour 1 · 21:40 UTC', title:'La transmission commence',
+      text:'Le cargo a disparu derrière l’horizon. Le vent monte. Dans la salle radio, une dernière consigne de mission s’affiche : <em>« Aucun signal n’est inutile. Aucun symptôme n’est anodin. Parlez-vous avant d’agir. »</em> Puis les premières alarmes apparaissent.',
+      chips:['Communication','Diagnostic','Première crise']
+    }
+  ];
+  function introSceneVisual(i){
+    var v=H('div',{class:'intro-visual'});
+    v.appendChild(H('div',{class:'intro-stars'}));
+    v.appendChild(H('div',{class:'intro-horizon'}));
+    v.appendChild(H('div',{class:'intro-station'}));
+    v.appendChild(H('div',{class:'intro-antenna'}));
+    v.appendChild(H('i',{class:'intro-light l1'})); v.appendChild(H('i',{class:'intro-light l2'})); v.appendChild(H('i',{class:'intro-light l3'}));
+    v.appendChild(H('div',{class:'intro-snow'+(i>=2?' heavy':'')}));
+    return v;
+  }
+  function quitterIntro(){
+    save.storySeen=true; enregistrer();
+    rendrePoste(); aller('poste');
+  }
+  function rendreIntro(){
+    var box=vide($('ecran-intro')); introIndex=Math.max(0,Math.min(INTRO_SCENES.length-1,introIndex));
+    var shell=H('div',{class:'intro-shell'}), card=H('div',{class:'intro'});
+    var prog=H('div',{class:'intro-progress'});
+    INTRO_SCENES.forEach(function(_,i){prog.appendChild(H('i',{class:'intro-dot'+(i<=introIndex?' active':'')}));});
+    card.appendChild(prog);
+    card.appendChild(H('div',{class:'intro-credit',text:'Dossier de mission · BORÉE'}));
+    INTRO_SCENES.forEach(function(sc,i){
+      var scene=H('div',{class:'intro-scene'+(i===introIndex?' active':'')});
+      scene.appendChild(introSceneVisual(i));
+      var panel=H('div',{class:'intro-panel'},
+        H('div',{class:'intro-kicker',text:sc.kicker}),
+        H('h1',{class:'intro-title',text:sc.title}),
+        H('p',{class:'intro-text',html:sc.text}),
+        H('div',{class:'intro-meta'},sc.chips.map(function(c){return H('span',{class:'intro-chip',text:c});}))
+      );
+      scene.appendChild(panel); card.appendChild(scene);
+    });
+    var actions=H('div',{class:'intro-actions'});
+    if(introIndex>0) actions.appendChild(H('button',{class:'btn-large btn-discret',onclick:function(){introIndex--;rendreIntro();}},'Précédent'));
+    actions.appendChild(H('button',{class:'btn-large btn-primaire',onclick:function(){if(introIndex<INTRO_SCENES.length-1){introIndex++;rendreIntro();}else quitterIntro();}},introIndex<INTRO_SCENES.length-1?'Continuer':'Entrer dans la station'));
+    if(introIndex<INTRO_SCENES.length-1) actions.appendChild(H('button',{class:'btn-large btn-discret',onclick:quitterIntro},'Passer'));
+    card.appendChild(actions); shell.appendChild(card); box.appendChild(shell);
   }
 
   /* ============================================================
@@ -1629,36 +3140,92 @@ td .att { color: var(--alerte); }
       H('button', {
         class: 'btn-large' + (reprise ? '' : ' btn-primaire'), onclick: function () {
           if (reprise && !confirm('Créer une nouvelle station remplace la partie en cours. Continuer ?')) return;
-          save = { seed: B.newSeed(), decisions: [], poste: null };
-          enregistrer(); recalculer(); rendrePoste(); aller('poste');
+          p2pDestroy();
+          save = { seed: B.newSeed(), decisions: [], poste: null, p2pRole: 'host', hostPeerId: nouveauPeerId(), peerId: null, pendingLocal: null, progression: B.progressionBase ? B.progressionBase() : {tech:{points:0,unlocked:[]},equipage:{points:0,unlocked:[]},coop:{points:0,unlocked:[]}}, storySeen: false };
+          enregistrer(); p2pInit(); recalculer(); rendreIntro(); aller('intro');
         }
       }, 'Créer une station'),
       H('button', { class: 'btn-large btn-discret', onclick: rendreRejoindre }, 'Rejoindre une station'),
       H('button', { class: 'btn-large btn-discret', onclick: function () { rendreRegles(); aller('regles'); } }, 'Comment on joue'),
-      H('div', { class: 'note-regle', text: 'Rien n\'est envoyé sur un serveur. Chaque téléphone déroule le même hiver à partir du code de la station et des décisions transmises.' })
+      H('div', { class: 'note-regle', text: 'Le téléphone hôte conserve la sauvegarde de la station. Après la mise en relation, les décisions sont synchronisées directement entre les deux appareils.' })
+    ));
+  }
+
+  function invitationLien() {
+    if (!save.hostPeerId) return location.href;
+    try {
+      var u = new URL(location.href);
+      u.searchParams.set('join', save.hostPeerId);
+      u.hash = '';
+      return u.toString();
+    } catch (e) {
+      return location.href + (location.href.indexOf('?') >= 0 ? '&' : '?') + 'join=' + encodeURIComponent(save.hostPeerId);
+    }
+  }
+
+  function partagerStation() {
+    var url = invitationLien();
+    if (navigator.share) {
+      navigator.share({ title: 'Borée', text: 'Rejoins ma station Borée.', url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function () { alert('Lien d’invitation copié.'); }).catch(function () { prompt('Copie ce lien :', url); });
+    } else {
+      prompt('Copie ce lien :', url);
+    }
+  }
+
+  function invitationBloc() {
+    if (!save || save.p2pRole !== 'host' || !save.hostPeerId) return null;
+    return H('div', { class: 'caisson pile' },
+      H('span', { class: 'etiquette', text: 'Invitation de la station' }),
+      H('p', { class: 'prose', style: 'margin:0' }, 'Partage ce lien une seule fois. Ton binôme rejoint directement cette station ; ensuite toutes les décisions passent par la connexion P2P.'),
+      H('div', { class: 'etat-code', style: 'font-size:15px;letter-spacing:.08em;word-break:break-all' }, save.hostPeerId),
+      H('button', { class: 'btn-large btn-primaire', onclick: partagerStation }, 'Partager le lien'),
+      H('div', { class: 'petit', text: net.connected ? 'Binôme connecté.' : 'En attente du binôme…' })
+    );
+  }
+
+  function rendreAttenteConnexion() {
+    var box = vide($('ecran-poste'));
+    box.appendChild(H('div', { class: 'pile' },
+      H('div', {},
+        H('span', { class: 'etiquette', text: 'Connexion' }),
+        H('h2', { class: 'titre-bloc', text: 'Connexion à la station' })
+      ),
+      H('p', { class: 'prose', text: 'Le téléphone qui héberge la station est recherché. Une fois la connexion établie, son état de sauvegarde sera chargé ici.' }),
+      H('div', { class: 'caisson' },
+        H('span', { class: 'etiquette', text: 'Station hôte' }),
+        H('div', { class: 'etat-code', text: save.hostPeerId || '—' })
+      ),
+      H('div', { class: 'petit', text: p2pStatusText() || 'Connexion…' }),
+      H('button', { class: 'btn-large btn-primaire', onclick: function () { p2pConnectToHost(); } }, 'Réessayer'),
+      H('button', { class: 'btn-large btn-discret', onclick: function () { p2pDestroy(); save = { seed:null, decisions:[], poste:null, p2pRole:null, hostPeerId:null, peerId:null }; enregistrer(); rendreAccueil(); aller('accueil'); } }, 'Retour')
     ));
   }
 
   function rendreRejoindre() {
     var box = vide($('ecran-accueil'));
-    var champ = H('input', { type: 'text', id: 'champ-station', maxlength: '120', placeholder: 'CODE', autocapitalize: 'characters', autocomplete: 'off' });
+    var champ = H('input', { type: 'text', id: 'champ-station', maxlength: '64', placeholder: 'CODE D’INVITATION', autocapitalize: 'characters', autocomplete: 'off' });
     var err = H('div', { class: 'erreur' });
     box.appendChild(H('div', { class: 'pile' },
       H('h2', { class: 'titre-bloc', text: 'Rejoindre une station' }),
-      H('p', { class: 'prose', text: 'Saisis le code que ton binôme a sous les yeux. S\'il a déjà joué des semaines sans toi, colle la ligne complète qu\'il voit en bas de son écran.' }),
-      H('div', {}, H('span', { class: 'etiquette', text: 'Code de la station' }), champ),
+      H('p', { class: 'prose', text: 'Entre le code d’invitation de ton binôme. Cette étape n’est nécessaire qu’une seule fois.' }),
+      H('div', {}, H('span', { class: 'etiquette', text: 'Code d’invitation' }), champ),
       err,
       H('button', {
         class: 'btn-large btn-primaire', onclick: function () {
-          var v = String(champ.value || '').toUpperCase().replace(/[^0-9A-Z-]/g, '');
-          var morceaux = v.split('-').filter(function (x) { return x.length; });
-          if (!morceaux.length || morceaux[0].length < 3) { err.textContent = 'Code trop court. Il fait au moins trois caractères.'; return; }
-          save = { seed: morceaux[0], decisions: morceaux.slice(1), poste: null };
-          try { recalculer(); } catch (e) { err.textContent = 'Ce code n\'est pas lisible.'; return; }
-          enregistrer(); rendrePoste(); aller('poste');
+          var v = String(champ.value || '').trim();
+          if (!v) { err.textContent = 'Code vide.'; return; }
+          p2pDestroy();
+          save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: v, peerId: null, pendingLocal: null, storySeen: false };
+          enregistrer();
+          p2pInit();
+          rendreAttenteConnexion(); aller('poste');
         }
       }, 'Rejoindre'),
-      H('button', { class: 'btn-large btn-discret', onclick: function () { rendreAccueil(); } }, 'Retour')
+      H('button', { class: 'btn-large btn-discret', onclick: function () { rendreAccueil(); aller('accueil'); } }, 'Retour')
     ));
   }
 
@@ -1678,8 +3245,8 @@ td .att { color: var(--alerte); }
         H('p', { class: 'prose', style: 'margin:0' }, 'Chaque semaine apporte une situation qu\'aucun des deux postes ne peut résoudre seul. Il faut se lire les chiffres à voix haute, poser des questions, et se mettre d\'accord.')
       ),
       H('div', { class: 'caisson pile' },
-        H('span', { class: 'etiquette', text: '3 · un seul valide' }),
-        H('p', { class: 'prose', style: 'margin:0' }, 'Celui qui valide obtient un code de quelques lettres. L\'autre le saisit. Les deux stations restent alors exactement la même station — et chacun découvre les conséquences depuis son poste.')
+        H('span', { class: 'etiquette', text: '3 · chacun verrouille sa partie' }),
+        H('p', { class: 'prose', style: 'margin:0' }, 'Chaque poste prépare sa partie de la décision sur son téléphone. Quand les deux sont verrouillées, la station résout automatiquement la semaine et diffuse le résultat.')
       ),
       H('div', { class: 'caisson pile' },
         H('span', { class: 'etiquette', text: '4 · ça reste' }),
@@ -1695,30 +3262,59 @@ td .att { color: var(--alerte); }
   function rendrePoste() {
     var box = vide($('ecran-poste'));
     function choisir(p) {
-      save.poste = p; enregistrer(); recalculer();
+      if (save.p2pRole && save.p2pRole !== 'demo' && net.connected && net.remotePoste === p) {
+        alert('Ce poste est déjà pris par ton binôme. Choisis l’autre poste.');
+        return;
+      }
+      save.poste = p; enregistrer(); p2pRoleChanged(p); recalculer();
       if (st.fini) { rendreFin(); aller('fin'); } else { rendreHub(); aller('hub'); }
     }
-    box.appendChild(H('div', { class: 'pile' },
-      H('div', {},
-        H('span', { class: 'etiquette', text: 'Station ' + save.seed }),
-        H('h2', { class: 'titre-bloc', text: 'Choisis ton poste' })
-      ),
-      H('p', { class: 'prose', text: 'Un poste chacun. Dis à ton binôme lequel tu prends : deux personnes au même poste ne verront jamais la moitié du problème.' }),
-      H('div', { class: 'choix' },
-        H('button', { onclick: function () { choisir('tech'); } },
-          H('b', { text: 'Poste technique' }),
-          H('i', { text: 'Puissance, températures, capteurs, structure. Des chiffres, des seuils, des causes physiques.' })
+    function roleCard(id, kicker, title, desc, bullets, accent, icon) {
+      var points = H('ul',{class:'poste-points'});
+      bullets.forEach(function(t){ points.appendChild(H('li',{text:t})); });
+      return H('button',{class:'poste-card '+accent,onclick:function(){choisir(id);}},
+        H('div',{class:'poste-card-head'},
+          H('span',{class:'poste-card-kicker',text:kicker}),
+          H('span',{class:'poste-card-icon','aria-hidden':'true',text:icon})
         ),
-        H('button', { onclick: function () { choisir('equipage'); } },
-          H('b', { text: 'Poste équipage' }),
-          H('i', { text: 'Santé, fatigue, compétences, tensions. Ce que les gens disent, et ce qu\'ils ne disent pas.' })
-        ),
-        H('button', { onclick: function () { choisir('demo'); } },
-          H('b', { text: 'Un seul écran (démo)' }),
-          H('i', { text: 'Les deux postes visibles. Pratique pour montrer le jeu — mais il n\'y a plus rien à se dire.' })
-        )
+        H('b',{class:'poste-card-title',text:title}),
+        H('span',{class:'poste-card-desc',text:desc}),
+        points,
+        H('span',{class:'poste-card-cta',text:'Prendre ce poste →'})
+      );
+    }
+    var roleGrid = H('div',{class:'poste-role-grid'},
+      roleCard('tech','INGÉNIERIE','Poste technique','Comprendre ce que la station peut physiquement encaisser.',[
+        'Machines, énergie et températures',
+        'Capteurs et diagnostics',
+        'Réparations et structures'
+      ],'tech','⌁'),
+      roleCard('equipage','HUMAIN','Poste humain','Comprendre ce que les personnes peuvent réellement supporter.',[
+        'Soins, santé et fatigue',
+        'Compétences et comportements',
+        'Relations et cohésion'
+      ],'human','♧')
+    );
+    var expl = H('div',{class:'poste-explainer'},
+      H('span',{class:'poste-explainer-line'}),
+      H('span',{class:'poste-explainer-text',text:'Vous ne possédez chacun que la moitié des informations. La station a besoin des deux.'}),
+      H('span',{class:'poste-explainer-line'})
+    );
+    var demo = H('button',{class:'poste-demo',onclick:function(){choisir('demo');}},
+      H('span',{text:'Mode démonstration'}),
+      H('small',{text:'Voir les deux postes sur un seul écran'})
+    );
+    box.appendChild(H('div',{class:'poste-shell'},
+      H('div',{class:'poste-head'},
+        H('span',{class:'etiquette',text:'Station '+save.seed}),
+        H('h2',{class:'titre-bloc',text:'Choisissez votre poste'}),
+        H('p',{class:'prose',text:'Il n\'y a pas de meilleur poste. Deux lectures différentes de la même mission.'})
       ),
-      H('div', { class: 'note-regle', text: 'Le code de la station est ' + save.seed + '. Ton binôme le saisit dans « Rejoindre une station ».' })
+      roleGrid,
+      expl,
+      invitationBloc(),
+      demo,
+      H('div',{class:'note-regle',text: save.p2pRole === 'host' ? 'Ton binôme peut rejoindre avec le lien ci-dessus. Une fois les deux postes choisis, la partie commence.' : 'Le lien d’invitation suffit ; après la première connexion, la sauvegarde de la station reste locale sur les deux téléphones.'})
     ));
   }
 
@@ -1734,33 +3330,140 @@ td .att { color: var(--alerte); }
     );
   }
 
+  function competenceBranche(branch,label){var p=st.progression&&st.progression[branch];if(!p)return H('div');var box=H('div',{class:'caisson pile'},H('div',{class:'rang',style:'justify-content:space-between'},H('span',{class:'etiquette',text:label}),H('span',{class:'petit',text:p.points+' pt'})));var grid=H('div',{class:'talent-grid'});(B.TALENTS[branch]||[]).forEach(function(t){var own=p.unlocked.indexOf(t.id)>=0,can=B.talentCanBuy(st,branch,t.id),locked=t.req.some(function(r){return p.unlocked.indexOf(r)<0;});grid.appendChild(H('button',{class:'talent'+(own?' owned':'')+(locked?' locked':''),disabled:own||!can,onclick:function(){acheterCompetence(branch,t.id);}},H('b',{text:t.nom}),H('span',{text:own?'Acquise':locked?'Prérequis':'Coût '+t.cout}),H('i',{text:t.desc})));});box.appendChild(grid);return box;}
+  function acheterCompetence(branch,id){if(!st||st.fini)return;if(net.connected&&save.p2pRole!=='demo'&&net.role==='guest'){p2pSend({type:'skill_upgrade',branch:branch,id:id});return;}var r=B.buyTalent(st,branch,id);if(!r.ok)return;save.skillOps=Array.isArray(save.skillOps)?save.skillOps:[];save.skillOps.push({branch:branch,id:id});save.decisions.push('S:'+branch+':'+id);enregistrer();if(net.role==='host'&&net.connected)p2pSendSnapshot();rendreHub();}
+  function panneauCompetences(){
+    var p=H('div',{class:'pile'},
+      H('div',{},
+        H('span',{class:'etiquette',text:'Progression'}),
+        H('h2',{class:'titre-bloc',text:'Arbres de compétences'}),
+        H('p',{class:'prose',text:'Les points débloquent de nouvelles informations et options. La progression reste avec votre station. Prérequis visibles, choix irréversibles.'})
+      )
+    );
+    if(save.poste==='tech') p.appendChild(competenceBranche('tech','Ingénierie'));
+    if(save.poste==='equipage') p.appendChild(competenceBranche('equipage','Humain'));
+    if(save.poste==='demo'){ p.appendChild(competenceBranche('tech','Ingénierie')); p.appendChild(competenceBranche('equipage','Humain')); }
+    p.appendChild(competenceBranche('coop','Coopération'));
+    return p;
+  }
   function rendreHub() {
     var box = vide($('ecran-hub'));
-    var pile = H('div', { class: 'pile' });
-    pile.appendChild(schema());
-    pile.appendChild(H('div', { class: 'jauges' },
-      jauge('Intégrité de la station', st.integrite),
-      jauge('Cohésion de l\'équipage', st.cohesion)
+    var pile = H('div',{class:'pile'});
+    var prochain = cr ? cr.titre : (st.fini ? 'Hivernage terminé' : 'Aucune alerte active');
+    var cta = cr && !st.fini ? H('div',{class:'action-principale'},
+      H('div',{},H('span',{class:'etiquette',text:'À faire maintenant'}),H('div',{class:'titre-bloc',text:prochain}),H('div',{class:'petit',text:cr.chapeau||'Le prochain problème attend vos deux postes.'})),
+      H('button',{class:'btn-large btn-primaire',onclick:function(){rendreCrise();aller('crise');}},'Ouvrir')
+    ) : null;
+    pile.appendChild(H('div',{class:'hub-hero'},
+      H('div',{class:'ux-breadcrumb'},H('span',{text:'Poste de commandement'}),H('span',{text:'·'}),H('span',{text:'Hiver '+st.annee})),
+      H('div',{class:'titre-bloc',text:st.fini?'Bilan de l’hiver':'La station est sous contrôle'}),
+      H('div',{class:'hub-meta'},
+        H('div',{},H('span',{text:'Jour'}),H('b',{text:Math.min(st.jour,B.JOURS_HIVER)+' / '+B.JOURS_HIVER})),
+        H('div',{},H('span',{text:'Intégrité'}),H('b',{text:Math.round(st.integrite)+' %'})),
+        H('div',{},H('span',{text:'Cohésion'}),H('b',{text:Math.round(st.cohesion)+' %'}))
+      )
     ));
+    if(cta)pile.appendChild(cta);
+    pile.appendChild(H('div',{class:'section-titre'},H('span',{class:'etiquette',text:'Vue d’ensemble'}),H('button',{onclick:function(){rendreDossier();aller('dossier');}},'Ouvrir le dossier')));
+    pile.appendChild(H('div',{class:'resume-grid'},
+      H('div',{class:'resume-card',onclick:function(){rendreDossier();aller('dossier');}},H('b',{text:'Systèmes'}),H('span',{text:'État des modules et dégâts'})),
+      H('div',{class:'resume-card',onclick:function(){rendreDossier();aller('dossier');}},H('b',{text:'Équipage'}),H('span',{text:'Santé, fatigue et tensions'})),
+      H('div',{class:'resume-card',onclick:function(){rendreProgression();aller('progression');}},H('b',{text:'Progression'}),H('span',{text:'Compétences et prochains déblocages'})),
+      H('div',{class:'resume-card',onclick:function(){rendreJournal();aller('journal');}},H('b',{text:'Journal'}),H('span',{text:st.journal.length+' entrée(s) · décisions passées'}))
+    ));
+    pile.appendChild(H('div',{class:'section-titre'},H('span',{class:'etiquette',text:'État critique'}),H('span',{class:'petit',text:net.connected?'liaison active':'liaison absente'})));
+    pile.appendChild(H('div',{class:'jauges'},jauge('Intégrité de la station',st.integrite),jauge("Cohésion de l'équipage",st.cohesion)));
+    if (cr) pile.appendChild(H('div',{class:'note-regle',text:'Conseil : consultez chacun votre dossier avant de verrouiller une décision. Certaines informations n’apparaissent que pour un poste.'}));
+    pile.appendChild(H('div',{class:'rang'},H('button',{class:'btn-discret',onclick:ouvrirMenu},'Menu de station'),H('button',{class:'btn-discret',onclick:rendreSync},'Synchronisation')));
+    box.appendChild(pile);
+  }
 
-    if (save.poste !== 'equipage') pile.appendChild(panneauSystemes());
-    if (save.poste !== 'tech') pile.appendChild(panneauEquipage());
-
-    if (cr) {
-      pile.appendChild(H('div', { class: 'caisson accentue pile' },
-        H('span', { class: 'etiquette', text: 'Semaine ' + (st.session + 1) + ' · jour ' + st.jour }),
-        H('div', { class: 'titre-bloc', text: cr.titre }),
-        H('p', { class: 'prose', style: 'margin:0', text: cr.chapeau }),
-        cr.rappel ? H('div', { class: 'avert', text: cr.rappel }) : null,
-        H('button', { class: 'btn-large btn-primaire', onclick: function () { rendreCrise(); aller('crise'); } }, 'Ouvrir le rapport')
-      ));
+  function rendreDossier(){
+    var box=vide($('ecran-dossier'));
+    var pile=H('div',{class:'pile'});
+    var damaged=Object.keys(st.modules).map(function(k){return st.modules[k];}).filter(function(m){return m.built&&m.dmg>0;});
+    var actifs=B.actifs(st);
+    var fragiles=actifs.filter(function(c){return c.sante<55||c.etat==='malade'||c.etat==='blesse'||c.etat==='critique';});
+    var tendus=actifs.filter(function(c){return c.moral<40;});
+    var dettes=Array.isArray(st.dette)?st.dette.length:0;
+    var chantier=st.chantier?st.modules[st.chantier]:null;
+    var stats;
+    if(save.poste==='tech'){
+      stats=[
+        {lab:'Modules endommagés',v:String(damaged.length),cl:damaged.length?'alert':'good'},
+        {lab:'Chantiers actifs',v:chantier?'1':'0',cl:chantier?'':'good'},
+        {lab:'Équipage fragile',v:String(fragiles.length),cl:fragiles.length?'alert':''},
+        {lab:'Dette diagnostic',v:String(dettes),cl:dettes?'alert':'good'}
+      ];
+    } else if(save.poste==='equipage') {
+      stats=[
+        {lab:'Personnes fragiles',v:String(fragiles.length),cl:fragiles.length?'alert':'good'},
+        {lab:'Moral bas',v:String(tendus.length),cl:tendus.length?'alert':'good'},
+        {lab:'Modules endommagés',v:String(damaged.length),cl:damaged.length?'alert':'good'},
+        {lab:'Dette diagnostic',v:String(dettes),cl:dettes?'alert':'good'}
+      ];
+    } else {
+      stats=[
+        {lab:'Modules endommagés',v:String(damaged.length),cl:damaged.length?'alert':'good'},
+        {lab:'Personnes fragiles',v:String(fragiles.length),cl:fragiles.length?'alert':'good'},
+        {lab:'Entrées journal',v:String(st.journal.length),cl:''},
+        {lab:'Dette diagnostic',v:String(dettes),cl:dettes?'alert':'good'}
+      ];
     }
+    var summary=H('div',{class:'dossier-summary'});
+    stats.forEach(function(x){summary.appendChild(H('div',{class:'dossier-stat '+x.cl},H('span',{class:'lab',text:x.lab}),H('b',{text:x.v})));});
 
-    pile.appendChild(H('div', { class: 'rang' },
-      H('button', { class: 'btn-discret', onclick: function () { rendreJournal(); aller('journal'); } }, 'Journal de bord (' + st.journal.length + ')'),
-      H('button', { class: 'btn-discret', onclick: rendreSync }, 'Synchronisation'),
-      H('button', { class: 'btn-discret', onclick: function () { rendreAccueil(); aller('accueil'); } }, 'Menu')
-    ));
+    var alerts=[];
+    if(damaged.length) alerts.push(damaged.length+' module'+(damaged.length>1?'s':'')+' à surveiller.');
+    if(fragiles.length) alerts.push(fragiles.length+' personne'+(fragiles.length>1?'s':'')+' avec un état de santé fragile.');
+    if(tendus.length) alerts.push(tendus.length+' personne'+(tendus.length>1?'s':'')+' au moral bas.');
+    if(dettes) alerts.push(dettes+' problème'+(dettes>1?'s':'')+' diagnostique'+(dettes>1?'s':'')+' non résolu'+(dettes>1?'s':'')+'.');
+    if(chantier) alerts.push('Chantier en cours : '+chantier.nom+'.');
+
+    var top=H('div',{class:'dossier-head'},
+      H('div',{class:'ux-breadcrumb'},H('button',{onclick:function(){rendreHub();aller('hub');}},'Station'),H('span',{text:'›'}),H('span',{text:'Dossier'})),
+      H('h2',{class:'titre-bloc',text:'Dossier de station'}),
+      H('p',{class:'prose',text:'La fiche de référence pour préparer vos échanges. Chaque poste conserve ses informations propres.'}),
+      summary,
+      alerts.length?H('div',{class:'dossier-alerts'},H('div',{class:'titre',text:'À surveiller'}),H('ul',{},alerts.map(function(a){return H('li',{text:a});}))):H('div',{class:'dossier-hint note-regle',text:'Aucun point critique à signaler dans les données que ton poste peut consulter.'})
+    );
+    pile.appendChild(top);
+
+    var tabs=H('div',{class:'dossier-tabs'});
+    var contenu=H('div',{});
+    function tab(label,count,fn){var b=H('button',{onclick:fn},label,H('span',{class:'dossier-tab-count',text:'('+count+')'}));tabs.appendChild(b);return b;}
+    var sysCount=Object.keys(st.modules).filter(function(k){return st.modules[k].built;}).length;
+    var crewCount=B.actifs(st).length;
+    var bt1=tab('Systèmes',sysCount,function(){dessiner('sys');});
+    var bt2=tab('Humain',crewCount,function(){dessiner('crew');});
+    pile.appendChild(tabs);pile.appendChild(contenu);
+
+    function dessiner(mode){
+      contenu.innerHTML='';
+      bt1.classList.toggle('active',mode==='sys');
+      bt2.classList.toggle('active',mode==='crew');
+      if(mode==='sys'){
+        contenu.appendChild(H('div',{class:'dossier-panel-title'},H('b',{text:'Systèmes'}),H('span',{text:'état de la station'})));
+        if(save.poste==='equipage') contenu.appendChild(H('div',{class:'note-regle dossier-hint',text:'Lecture simplifiée. Pour les seuils, mesures et diagnostics, demande à ton binôme technique.'}));
+        else contenu.appendChild(panneauSystemes());
+      } else {
+        contenu.appendChild(H('div',{class:'dossier-panel-title'},H('b',{text:'Humain'}),H('span',{text:'état de l’équipage'})));
+        if(save.poste==='tech') contenu.appendChild(H('div',{class:'note-regle dossier-hint',text:'Lecture simplifiée. Pour les symptômes, tensions et limites individuelles, demande à ton binôme humain.'}));
+        else contenu.appendChild(panneauEquipage());
+      }
+    }
+    pile.appendChild(H('button',{class:'btn-large btn-discret',onclick:function(){rendreHub();aller('hub');}},'Retour au poste de commandement'));
+    box.appendChild(pile);
+    dessiner(save.poste==='tech'?'sys':'crew');
+  }
+
+  function rendreProgression(){
+    var box=vide($('ecran-progression'));
+    var pile=H('div',{class:'pile'});
+    pile.appendChild(H('div',{},H('div',{class:'ux-breadcrumb'},H('button',{onclick:function(){rendreHub();aller('hub');}},'Station'),H('span',{text:'›'}),H('span',{text:'Progression'})),H('h2',{class:'titre-bloc',text:'Progression'}),H('p',{class:'prose',text:'Développez votre expertise pour obtenir de nouvelles options et surtout de nouvelles informations. Les choix sont permanents pour cet hivernage.'})));
+    pile.appendChild(panneauCompetences());
+    pile.appendChild(H('div',{class:'note-regle',text:'Priorité recommandée : achetez une compétence qui ouvre une nouvelle manière de résoudre les problèmes plutôt qu’un simple bonus numérique.'}));
+    pile.appendChild(H('button',{class:'btn-large btn-discret',onclick:function(){rendreHub();aller('hub');}},'Retour au poste de commandement'));
     box.appendChild(pile);
   }
 
@@ -1793,7 +3496,7 @@ td .att { color: var(--alerte); }
       if (c.etat === 'perdu') {
         pile.appendChild(H('div', { class: 'fiche malade' },
           H('div', { class: 'nom', text: c.nom }),
-          H('div', { class: 'role', text: 'n\'a pas passé l\'hiver' })
+          H('div', { class: 'role', text: "n'a pas passé l'hiver" })
         ));
         return;
       }
@@ -1806,9 +3509,33 @@ td .att { color: var(--alerte); }
         H('div', { class: 'nom', text: c.nom }),
         H('div', { class: 'role', text: c.role }),
         H('div', { class: 'dit', text: etat + '. Moral ' + (c.moral > 70 ? 'bon' : c.moral > 45 ? 'moyen' : c.moral > 25 ? 'bas' : 'au fond') + '.' }),
-        H('div', { class: 'meta', text: 'dort au ' + (st.modules[c.couchage] ? st.modules[c.couchage].nom : '?') + ' · ' + (c.rythme === 'nuit' ? 'service de nuit' : 'service de jour') + ' · ' + c.trait.label })
+        H('div', { class: 'meta', text: 'dort au ' + (st.modules[c.couchage] ? st.modules[c.couchage].nom : '?') + ' · ' + (c.rythme === 'nuit' ? 'service de nuit' : 'service de jour') + ' · ' + c.trait.label }),
+        c.preference ? H('div', { class: 'affinite-courte', text: 'Préférence · ' + c.preference.label }) : null,
+        c.procheId ? H('div', { class: 'affinite-courte', text: 'Lien fort · ' + nomOf(st, c.procheId) }) : null,
+        Array.isArray(c.memoire) && c.memoire.length ? H('div', { class: 'memoire-courte', text: 'Dernière trace · ' + c.memoire[c.memoire.length - 1] }) : null
       ));
     });
+
+    var relations = [];
+    var actifsCrew = B.actifs(st);
+    for (var ri = 0; ri < actifsCrew.length; ri++) {
+      for (var rj = ri + 1; rj < actifsCrew.length; rj++) {
+        relations.push({ a: actifsCrew[ri], b: actifsCrew[rj], v: B.relOf(st, actifsCrew[ri].id, actifsCrew[rj].id) });
+      }
+    }
+    relations.sort(function(a,b){ return Math.abs(b.v)-Math.abs(a.v) || a.v-b.v; });
+    var relBox = H('div', { class: 'relations-humain' });
+    relations.slice(0,4).forEach(function(r){
+      var cls = r.v < 0 ? 'neg' : r.v > 0 ? 'pos' : 'neu';
+      var label = r.v <= -3 ? 'rupture ouverte' : r.v <= -2 ? 'tension forte' : r.v < 0 ? 'méfiance' : r.v === 0 ? 'neutre' : r.v === 1 ? 'bonne entente' : r.v === 2 ? 'confiance' : 'lien solide';
+      relBox.appendChild(H('div', { class:'relation-ligne '+cls },
+        H('div',{class:'relation-noms'},H('b',{text:r.a.prenom}),H('span',{text:'↔'}),H('b',{text:r.b.prenom})),
+        H('div',{class:'relation-etat'},H('span',{text:label}),H('strong',{text:(r.v>0?'+':'')+r.v}))
+      ));
+    });
+    if (!relations.length) relBox.appendChild(H('div',{class:'petit',text:'Pas assez de personnes pour établir des liens.'}));
+    pile.appendChild(H('div',{class:'dossier-panel-title'},H('b',{text:'Relations'}),H('span',{text:'mémoire humaine'})));
+    pile.appendChild(relBox);
     return H('div', { class: 'caisson pile' }, H('span', { class: 'etiquette', text: 'Équipage — ' + B.actifs(st).length + ' en état de travailler' }), pile);
   }
 
@@ -1851,7 +3578,7 @@ td .att { color: var(--alerte); }
       blocs,
       H('ul', { class: 'puces petit' },
         H('li', { text: 'Un module laissé en service sous −2 °C : la conduite gèle et cède. Réparation obligatoire ensuite.' }),
-        H('li', { text: 'Un module purgé volontairement ne risque rien — mais il n\'est plus habitable de la nuit.' }),
+        H('li', { text: 'Un module purgé volontairement ne risque rien — mais il n\'est plus habitable pour la nuit.' }),
         H('li', { text: 'Dépasser la puissance disponible fait décrocher le groupe : tout redescend d\'un cran, sans purge.' })
       )
     );
@@ -2016,10 +3743,28 @@ td .att { color: var(--alerte); }
   }
 
   function decisionUI() {
+    initialiserRound(false);
     var wrap = H('div', { class: 'caisson pile' });
-    wrap.appendChild(H('span', { class: 'etiquette', text: 'Décision commune' }));
+    var roleLabel = save.poste === 'tech' ? 'Poste technique' : save.poste === 'equipage' ? 'Poste équipage' : 'Démo';
+    wrap.appendChild(H('span', { class: 'etiquette', text: 'Décision · ' + roleLabel }));
+    var meta = roundStateMeta();
+    wrap.appendChild(H('div', { class: 'boree-turnline ' + meta.cls },
+      H('strong', { text: meta.label }), H('span', { text: meta.text })
+    ));
     var corps = H('div', {});
     wrap.appendChild(corps);
+
+    function editable(i) { return !round.localSubmitted && roleForIndex(cr, i, save.poste); }
+    function val(i) { return round.localDec ? round.localDec[i] : dec[i]; }
+    function setVal(i, v) { if (!editable(i)) return; round.localDec[i] = v; dec = round.localDec; redessine(); }
+    function lockNote(i, label) {
+      return H('div', { class: 'note-regle', style: 'margin-top:7px', text: roleForIndex(cr, i, save.poste) ? (round.localSubmitted ? '✓ ' + label + ' verrouillé.' : label + ' — ta décision.') : label + ' — décision de l’autre poste.' });
+    }
+    function segmentsOwned(labels, idx) {
+      var seg = segments(labels, val(idx), function (v) { setVal(idx, v); });
+      if (!editable(idx)) seg.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+      return seg;
+    }
 
     function redessine() {
       vide(corps);
@@ -2028,111 +3773,98 @@ td .att { color: var(--alerte); }
         corps.appendChild(H('div', { class: 'etiquette', text: 'Régime de chauffage' }));
         cr.mods.forEach(function (m, i) {
           corps.appendChild(H('div', { class: 'ligne-dec' },
-            H('div', { class: 'quoi' }, H('b', { text: m.nom }),
-              save.poste !== 'equipage' ? H('span', { text: cr.temps[m.id][dec[i]] + '° · ' + cr.cout[m.id][dec[i]].toFixed(1) + ' kW' }) : null),
-            segments(['Purgé', 'Veilleuse', 'Partiel', 'Plein'], dec[i], function (v) { dec[i] = v; redessine(); })
+            H('div', { class: 'quoi' }, H('b', { text: m.nom }), save.poste === 'tech' ? H('span', { text: cr.temps[m.id][val(i)] + '° · ' + cr.cout[m.id][val(i)].toFixed(1) + ' kW' }) : null),
+            segmentsOwned(['Purgé', 'Veilleuse', 'Partiel', 'Plein'], i),
+            lockNote(i, 'Chauffage')
           ));
         });
-        if (save.poste !== 'equipage') {
+        if (save.poste === 'tech') {
           var conso = 0;
-          cr.mods.forEach(function (m, i) { conso += cr.cout[m.id][dec[i]]; });
+          cr.mods.forEach(function (m, i) { conso += cr.cout[m.id][val(i)]; });
           var sur = conso > cr.budget + 1e-9;
-          corps.appendChild(H('div', {
-            class: 'petit', style: 'margin-top:10px;color:' + (sur ? 'var(--grave)' : 'var(--sourd)'),
-            text: 'Charge demandée : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' +
-              (sur ? 'le groupe va décrocher et tout redescendra d\'un cran.' : 'dans les marges.')
-          }));
+          corps.appendChild(H('div', { class: 'petit', style: 'margin-top:10px;color:' + (sur ? 'var(--grave)' : 'var(--sourd)'), text: 'Charge demandée : ' + conso.toFixed(1) + ' / ' + cr.budget.toFixed(1) + ' kW — ' + (sur ? 'le groupe va décrocher.' : 'dans les marges.') }));
         }
         corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:16px', text: 'Où dort chacun' }));
         cr.eq.forEach(function (c, j) {
           var idx = nbm + j;
           corps.appendChild(H('div', { class: 'ligne-dec' },
-            H('div', { class: 'quoi' }, H('b', { text: c.prenom }),
-              save.poste !== 'tech' ? H('span', { text: cr.besoins[j].mini <= 0 ? 'insensible au froid' : 'min. ' + cr.besoins[j].mini + '°' }) : null),
-            segments(cr.mods.map(court), dec[idx] % nbm, function (v) { dec[idx] = v; redessine(); })
+            H('div', { class: 'quoi' }, H('b', { text: c.prenom }), save.poste === 'equipage' ? H('span', { text: cr.besoins[j].mini <= 0 ? 'insensible au froid' : 'min. ' + cr.besoins[j].mini + '°' }) : null),
+            segmentsOwned(cr.mods.map(court), idx),
+            lockNote(idx, 'Couchage')
           ));
         });
-        if (save.poste !== 'equipage') {
-          var occ = cr.mods.map(function () { return 0; });
-          cr.eq.forEach(function (c, j) { occ[dec[nbm + j] % nbm]++; });
-          var pleins = cr.mods.filter(function (m, i) { return occ[i] > m.cap; }).map(function (m) { return m.nom; });
-          corps.appendChild(H('div', {
-            class: 'petit', style: 'margin-top:10px;color:' + (pleins.length ? 'var(--grave)' : 'var(--sourd)'),
-            text: pleins.length ? 'Plus de monde que de lits : ' + pleins.join(', ') + '.' : 'Chacun a un lit.'
-          }));
-        }
       } else if (cr.type === 'diagnostic') {
         corps.appendChild(H('div', { class: 'etiquette', text: 'Cause retenue' }));
         var l1 = H('div', { class: 'choix' });
-        B.CAUSES.forEach(function (c, i) {
-          l1.appendChild(H('button', { type: 'button', 'aria-pressed': String(dec[0] === i), onclick: function () { dec[0] = i; redessine(); } }, H('b', { text: c.nom })));
-        });
-        corps.appendChild(l1);
+        B.CAUSES.forEach(function (c, i) { l1.appendChild(H('button', { type: 'button', 'aria-pressed': String(val(0) === i), disabled: !editable(0), onclick: function () { setVal(0, i); } }, H('b', { text: c.nom }))); });
+        corps.appendChild(l1); corps.appendChild(lockNote(0, 'Hypothèse'));
+        if(cr.skillClueTech&&save.poste==='tech') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · lecture vibratoire'}),H('span',{text:cr.skillClueTech})));
+        if(cr.skillClueTech2&&save.poste==='tech') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · diagnostic différentiel'}),H('span',{text:cr.skillClueTech2})));
+        if(cr.skillClueCrew&&save.poste==='equipage') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · diagnostic clinique'}),H('span',{text:cr.skillClueCrew})));
         corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:16px', text: 'Intervention' }));
         var l2 = H('div', { class: 'choix' });
-        B.FIXES.forEach(function (f, i) {
-          l2.appendChild(H('button', { type: 'button', 'aria-pressed': String(dec[1] === i), onclick: function () { dec[1] = i; redessine(); } },
-            H('b', { text: f.nom }),
-            i === 5 ? H('i', { text: 'Soulage sans régler. La cause reviendra, et en attendant elle continue d\'agir.' }) : null
-          ));
-        });
-        corps.appendChild(l2);
+        B.FIXES.forEach(function (f, i) { l2.appendChild(H('button', { type: 'button', 'aria-pressed': String(val(1) === i), disabled: !editable(1), onclick: function () { setVal(1, i); } }, H('b', { text: f.nom }), i === 5 ? H('i', { text: 'Soulage sans régler. La cause reviendra, et en attendant elle continue d’agir.' }) : null)); });
+        corps.appendChild(l2); corps.appendChild(lockNote(1, 'Intervention'));
+      } else if (cr.type === 'evenement') {
+        corps.appendChild(H('div',{class:'etiquette',text:'Poste technique'}));
+        corps.appendChild(H('div',{class:'choix'},cr.techChoices.map(function(x,i){return H('button',{type:'button','aria-pressed':String(val(0)===i),disabled:!editable(0),onclick:function(){setVal(0,i);}},H('b',{text:x}));})));
+        if(cr.skillClueTech&&save.poste==='tech') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · expertise ingénierie'}),H('span',{text:cr.skillClueTech})));
+        corps.appendChild(lockNote(0,'Choix technique'));
+        corps.appendChild(H('div',{class:'etiquette',style:'margin-top:16px',text:'Poste équipage'}));
+        corps.appendChild(H('div',{class:'choix'},cr.crewChoices.map(function(x,i){return H('button',{type:'button','aria-pressed':String(val(1)===i),disabled:!editable(1),onclick:function(){setVal(1,i);}},H('b',{text:x}));})));
+        if(cr.skillClueCrew&&save.poste==='equipage') corps.appendChild(H('div',{class:'indice-metier'},H('b',{text:'Compétence · expertise humaine'}),H('span',{text:cr.skillClueCrew})));
+        corps.appendChild(lockNote(1,'Choix équipage'));
       } else {
         corps.appendChild(H('div', { class: 'etiquette', text: 'Affectation des travaux' }));
         var noms = cr.eq.map(function (c) { return c.prenom; }).concat(['Non faite']);
         cr.taches.forEach(function (t, i) {
           corps.appendChild(H('div', { class: 'ligne-dec' },
-            H('div', { class: 'quoi' }, H('b', { text: (i + 1) + '. ' + t.nom }),
-              save.poste !== 'equipage' ? H('span', { text: B.SKILL_LABEL[t.sk] + ' n' + t.niv + ' · ' + t.h + ' h' }) : null),
-            segments(noms, Math.min(dec[i], noms.length - 1), function (v) { dec[i] = v; redessine(); })
+            H('div', { class: 'quoi' }, H('b', { text: (i + 1) + '. ' + t.nom }), save.poste === 'tech' ? H('span', { text: B.SKILL_LABEL[t.sk] + ' n' + t.niv + ' · ' + t.h + ' h' }) : null),
+            segmentsOwned(noms, i),
+            lockNote(i, ['mecanique','electricite','soudure'].indexOf(t.sk) >= 0 ? 'Affectation technique' : 'Affectation équipage')
           ));
         });
-        if (save.poste !== 'equipage') {
+        if (save.poste === 'tech') {
           var heures = {};
-          cr.taches.forEach(function (t, i) { if (dec[i] < cr.eq.length) heures[dec[i]] = (heures[dec[i]] || 0) + t.h; });
-          var dep = Object.keys(heures).filter(function (k) { return heures[k] > cr.fenetre; })
-            .map(function (k) { return cr.eq[k].prenom + ' ' + heures[k] + ' h'; });
-          corps.appendChild(H('div', {
-            class: 'petit', style: 'margin-top:10px;color:' + (dep.length ? 'var(--grave)' : 'var(--sourd)'),
-            text: dep.length ? 'Fenêtre de ' + cr.fenetre + ' h dépassée : ' + dep.join(', ') + '.' : 'Personne ne dépasse la fenêtre de ' + cr.fenetre + ' h.'
-          }));
+          cr.taches.forEach(function (t, i) { if (roleForIndex(cr, i, 'tech') && val(i) < cr.eq.length) heures[val(i)] = (heures[val(i)] || 0) + t.h; });
+          var dep = Object.keys(heures).filter(function (k) { return heures[k] > cr.fenetre; }).map(function (k) { return cr.eq[k].prenom + ' ' + heures[k] + ' h'; });
+          corps.appendChild(H('div', { class: 'petit', style: 'margin-top:10px;color:' + (dep.length ? 'var(--grave)' : 'var(--sourd)'), text: dep.length ? 'Fenêtre dépassée : ' + dep.join(', ') + '.' : 'Aucune charge technique ne dépasse la fenêtre.' }));
         }
       }
 
-      // affectation de la semaine (dernière valeur du code)
-      var iSem = dec.length - 1;
+      var iSem = cr.widths.length - 1;
       corps.appendChild(H('div', { class: 'etiquette', style: 'margin-top:18px', text: 'Et la semaine qui vient' }));
       var l3 = H('div', { class: 'choix' });
-      (cr.chantiers || []).forEach(function (o, i) {
-        l3.appendChild(H('button', { type: 'button', 'aria-pressed': String(dec[iSem] === i), onclick: function () { dec[iSem] = i; redessine(); } },
-          H('b', { text: o.nom }), H('i', { text: o.desc })));
-      });
-      corps.appendChild(l3);
+      (cr.chantiers || []).forEach(function (o, i) { l3.appendChild(H('button', { type: 'button', 'aria-pressed': String(val(iSem) === i), disabled: !editable(iSem), onclick: function () { setVal(iSem, i); } }, H('b', { text: o.nom }), H('i', { text: o.desc }))); });
+      corps.appendChild(l3); corps.appendChild(lockNote(iSem, 'Plan de semaine'));
     }
     redessine();
-    wrap.appendChild(H('button', { class: 'btn-large btn-primaire', style: 'margin-top:6px', onclick: function () { rendreTransmission(); aller('transmission'); } }, 'Valider et transmettre'));
-    wrap.appendChild(H('div', { class: 'note-regle', text: 'Un seul des deux valide. L\'autre saisit le code — sinon vos deux stations partent dans deux histoires différentes.' }));
+    wrap.appendChild(H('button', { class: 'btn-large btn-primaire', style: 'margin-top:6px', disabled: !!round.localSubmitted, onclick: validerDecision }, round.localSubmitted ? 'Décision verrouillée' : (net.connected && save.p2pRole !== 'demo' ? 'Valider ma décision' : 'Valider et transmettre')));
+    wrap.appendChild(H('div', { class: 'note-regle', text: net.connected && save.p2pRole !== 'demo' ? 'La résolution se déclenche automatiquement quand les deux postes ont verrouillé leur partie.' : 'Connexion absente : le transport manuel reste disponible en secours.' }));
     return wrap;
   }
 
   function rendreCrise() {
     var box = vide($('ecran-crise'));
-    var pile = H('div', { class: 'pile' });
+    document.documentElement.setAttribute('data-crise-type', cr && cr.type ? cr.type : '');
+    var pile = H('div', { class: 'pile crise-scene' });
     pile.appendChild(H('div', {},
       H('span', { class: 'etiquette', text: 'Semaine ' + (st.session + 1) + ' · jour ' + st.jour + ' · hiver ' + st.annee }),
       H('h2', { class: 'titre-bloc', text: cr.titre }),
       H('p', { class: 'prose', text: cr.chapeau }),
-      cr.rappel ? H('div', { class: 'avert', text: cr.rappel }) : null
+      cr.rappel ? H('div', { class: 'avert', text: cr.rappel }) : null,
+      H('div', { class: 'boree-context-chip' }, H('span', { class: 'boree-context-dot' }), H('span', { text: save.poste === 'tech' ? 'Lecture technique active' : save.poste === 'equipage' ? 'Lecture humaine active' : 'Lecture complète active' })),
+      phaseCriseUI()
     ));
     if (save.poste !== 'equipage') {
-      pile.appendChild(cr.type === 'thermique' ? panThermiqueTech() : cr.type === 'diagnostic' ? panDiagTech() : panTempeteTech());
+      pile.appendChild(cr.type === 'thermique' ? panThermiqueTech() : cr.type === 'diagnostic' ? panDiagTech() : cr.type === 'tempete' ? panTempeteTech() : H('div',{class:'caisson pile'},H('span',{class:'etiquette',text:'Poste technique · événement'}),H('p',{class:'prose',text:'Choisis une réponse technique. L’autre poste détient une partie du contexte.'})));
     }
     if (save.poste !== 'tech') {
-      pile.appendChild(cr.type === 'thermique' ? panThermiqueEquipage() : cr.type === 'diagnostic' ? panDiagEquipage() : panTempeteEquipage());
+      pile.appendChild(cr.type === 'thermique' ? panThermiqueEquipage() : cr.type === 'diagnostic' ? panDiagEquipage() : cr.type === 'tempete' ? panTempeteEquipage() : H('div',{class:'caisson pile'},H('span',{class:'etiquette',text:'Poste équipage · événement'}),H('p',{class:'prose',text:'Observe les personnes, le contexte et le risque humain. Le poste technique voit autre chose.'})));
     }
     pile.appendChild(decisionUI());
     pile.appendChild(H('div', { class: 'rang' },
-      H('button', { class: 'btn-discret', onclick: function () { rendreReception(); aller('transmission'); } }, 'Saisir un code reçu'),
+      !net.connected ? H('button', { class: 'btn-discret', onclick: function () { rendreReception(); aller('transmission'); } }, 'Saisir un code reçu') : null,
       H('button', { class: 'btn-discret', onclick: function () { rendreHub(); aller('hub'); } }, 'Retour')
     ));
     box.appendChild(pile);
@@ -2183,19 +3915,38 @@ td .att { color: var(--alerte); }
     ));
   }
 
-  function appliquer(payload) {
-    var crSauve = cr;
-    var decSauve = dec.slice();
-    save.decisions.push(payload);
-    enregistrer();
-    var avant = { integrite: st.integrite, cohesion: st.cohesion };
+  function appliquer(payload, preResolved, crSauveArg, decSauveArg, avantArg) {
+    var crSauve = crSauveArg || cr;
+    var decSauve = decSauveArg ? decSauveArg.slice() : dec.slice();
+    var avant = avantArg || { integrite: st.integrite, cohesion: st.cohesion };
     var stAvant = st;
     var resultat = B.resolve(stAvant, crSauve, decSauve);
     st = stAvant;
+    st.derniere = resultat;
+    save.decisions.push(payload);
+    save.pendingLocal = null;
+    enregistrer();
     recalculerApres(resultat, crSauve, avant);
+    if (net.role === 'host' && net.connected) {
+      p2pSend({
+        type: 'resolved',
+        seed: save.seed,
+        decisions: save.decisions.slice(),
+        result: resultat,
+        cr: crSauve,
+        avant: avant,
+        stateCode: B.stateCode(save)
+      });
+    }
   }
 
   function recalculerApres(resultat, crSauve, avant) {
+    round.key = null;
+    round.localSubmitted = false;
+    round.remoteSubmitted = false;
+    round.localDec = null;
+    round.remoteDec = null;
+    save.pendingLocal = null;
     rendreResolution(resultat, crSauve, avant);
     aller('resolution');
     cr = B.crisisFor(st);
@@ -2207,10 +3958,12 @@ td .att { color: var(--alerte); }
      ============================================================ */
   function rendreResolution(r, crSauve, avant) {
     var box = vide($('ecran-resolution'));
-    var pile = H('div', { class: 'pile' });
+    document.documentElement.setAttribute('data-crise-type', 'resolution');
+    var pile = H('div', { class: 'pile resolution-scene' });
     pile.appendChild(H('div', {},
       H('span', { class: 'etiquette', text: 'Jour ' + (st.jour - 6) + ' · ' + crSauve.titre }),
-      H('h2', { class: 'titre-bloc', text: 'Ce qui s\'est passé' })
+      H('h2', { class: 'titre-bloc', text: 'Ce qui s\'est passé' }),
+      H('div', { class: 'boree-context-chip' }, H('span', { class: 'boree-context-dot' }), H('span', { text: 'Rapport de situation · conséquences enregistrées' }))
     ));
 
     if (r.shared.length) {
@@ -2258,67 +4011,92 @@ td .att { color: var(--alerte); }
   function rendreJournal() {
     var box = vide($('ecran-journal'));
     var pile = H('div', { class: 'pile' });
-    pile.appendChild(H('div', {},
+    var all = st.journal.slice().reverse();
+    var importants = all.filter(function(e){ return !!e.important; });
+    var mode = 'all';
+    var liste = H('div', { class: 'journal-list' });
+    var countSteps = st.journal.length;
+
+    pile.appendChild(H('div', { class: 'journal-head' },
       H('span', { class: 'etiquette', text: 'Station ' + save.seed }),
       H('h2', { class: 'titre-bloc', text: 'Journal de bord' }),
-      H('p', { class: 'prose', text: 'Écrit tout seul, semaine après semaine. C\'est la trace de ce que vous avez décidé — pas de ce que vous auriez voulu décider.' })
+      H('p', { class: 'prose', text: 'La mémoire de votre hivernage. Les décisions restent ici avec leurs conséquences : ce que vous avez choisi, ce que cela a changé, et ce qui pourrait revenir.' }),
+      H('div', { class: 'journal-meta' },
+        H('span', { class: 'journal-chip', text: countSteps + ' étape' + (countSteps>1?'s':'') }),
+        H('span', { class: 'journal-chip', text: importants.length + ' moment' + (importants.length>1?'s':'') + ' à retenir' }),
+        H('span', { class: 'journal-chip', text: 'Hiver ' + st.annee })
+      )
     ));
-    if (!st.journal.length) {
-      pile.appendChild(H('div', { class: 'note-regle', text: 'Rien encore. La première semaine n\'est pas passée.' }));
+
+    var filtres = H('div', { class: 'journal-filter' });
+    var bAll = H('button', { class:'active', text:'Tout', onclick:function(){mode='all';bAll.classList.add('active');bKey.classList.remove('active');renderList();} });
+    var bKey = H('button', { text:'À retenir', onclick:function(){mode='important';bKey.classList.add('active');bAll.classList.remove('active');renderList();} });
+    filtres.appendChild(bAll); filtres.appendChild(bKey);
+    pile.appendChild(filtres);
+
+    function renderList(){
+      vide(liste);
+      var items = mode==='important' ? importants : all;
+      if(!items.length){
+        liste.appendChild(H('div',{class:'journal-empty',text:mode==='important'?'Aucune conséquence persistante n’est marquée pour le moment.':'Le journal est encore vierge.'}));
+      } else {
+        var lastYear=null;
+        items.forEach(function(e){
+          if(e.annee!==lastYear){
+            lastYear=e.annee;
+            liste.appendChild(H('div',{class:'journal-era',text:'Hiver '+e.annee}));
+          }
+          liste.appendChild(H('article',{class:'entree'+(e.important?' journal-important':'')},
+            H('div',{class:'quand',text:'Jour '+e.jour}),
+            H('h3',{text:e.titre}),
+            e.important?H('div',{class:'avert',text:'À retenir · conséquence persistante'}):null,
+            H('p',{text:e.txt+(e.semaine?' '+e.semaine:'')}),
+            H('div',{class:'meta petit',style:'font-family:var(--mono);font-size:10px;margin-top:5px;color:var(--sourd)',text:'intégrité '+e.integrite+' · cohésion '+e.cohesion})
+          ));
+        });
+      }
     }
-    var liste = H('div', {});
-    st.journal.slice().reverse().forEach(function (e) {
-      liste.appendChild(H('div', { class: 'entree' },
-        H('div', { class: 'quand', text: 'Hiver ' + e.annee + ' · jour ' + e.jour }),
-        H('h3', { text: e.titre }),
-        H('p', { text: e.txt + (e.semaine ? ' ' + e.semaine : '') }),
-        H('div', { class: 'meta petit', style: 'font-family:var(--mono);font-size:10px;margin-top:5px;color:var(--sourd)', text: 'intégrité ' + e.integrite + ' · cohésion ' + e.cohesion })
-      ));
-    });
     pile.appendChild(liste);
-    pile.appendChild(H('button', { class: 'btn-large btn-discret', onclick: function () { rendreHub(); aller('hub'); } }, 'Retour'));
+    pile.appendChild(H('button',{class:'btn-large btn-discret',onclick:function(){rendreHub();aller('hub');}},'Retour au poste de commandement'));
     box.appendChild(pile);
+    renderList();
   }
 
   /* ============================================================
      SYNCHRONISATION
      ============================================================ */
   function rendreSync() {
-    var box = vide($('ecran-journal'));
-    var champ = H('input', { type: 'text', id: 'champ-sync', placeholder: 'CODE COMPLET', autocapitalize: 'characters', autocomplete: 'off', style: 'font-size:13px;letter-spacing:.1em' });
-    var err = H('div', { class: 'erreur' });
+    var box = vide($('ecran-sync'));
+    var lien = invitationLien();
+    var actions = [];
+    if (save.p2pRole === 'host') {
+      actions.push(H('button', { class: 'btn-large btn-primaire', onclick: partagerStation }, 'Partager le lien d’invitation'));
+    } else if (save.p2pRole === 'guest') {
+      actions.push(H('button', { class: 'btn-large btn-primaire', onclick: p2pConnectToHost }, 'Reconnecter la station'));
+    }
     box.appendChild(H('div', { class: 'pile' },
       H('div', {},
         H('span', { class: 'etiquette', text: 'Synchronisation' }),
-        H('h2', { class: 'titre-bloc', text: 'Les deux stations sont-elles la même ?' })
+        H('h2', { class: 'titre-bloc', text: net.connected ? 'Connexion active' : 'Connexion absente' })
       ),
-      H('p', { class: 'prose' }, 'Comparez ce code d\'état. S\'il diffère, une décision n\'a pas été appliquée des deux côtés.'),
-      H('div', { class: 'caisson' },
-        H('span', { class: 'etiquette', text: 'Code d\'état' }),
-        H('div', { class: 'etat-code', text: B.stateCode(save) })
-      ),
+      H('p', { class: 'prose', text: net.connected
+        ? 'Les décisions validées circulent directement entre les deux téléphones. La sauvegarde complète reste conservée sur chaque appareil.'
+        : 'La partie peut continuer localement. Une reconnexion récupère ensuite la sauvegarde détenue par le téléphone hôte.' }),
       H('div', { class: 'caisson pile' },
-        H('span', { class: 'etiquette', text: 'Histoire complète de la station' }),
-        H('div', { class: 'petit', style: 'font-family:var(--mono);word-break:break-all;color:var(--givre)', text: chaineReprise() }),
-        H('div', { class: 'petit', text: 'Toute la partie tient dans cette ligne. Celui qui est en retard la recopie ci-dessous.' })
+        H('span', { class: 'etiquette', text: 'État P2P' }),
+        H('div', { class: 'etat-code', text: p2pStatusText() || 'hors ligne' }),
+        save.p2pRole === 'host' ? H('div', { class: 'petit', style: 'margin-top:8px;word-break:break-all', text: 'ID hôte : ' + (save.hostPeerId || '—') }) : null
       ),
-      H('div', {}, H('span', { class: 'etiquette', text: 'Adopter une histoire reçue' }), champ),
-      err,
-      H('button', {
-        class: 'btn-large', onclick: function () {
-          var v = String(champ.value || '').toUpperCase().replace(/[^0-9A-Z-]/g, '');
-          var m = v.split('-').filter(function (x) { return x.length; });
-          if (!m.length) { err.textContent = 'Ligne vide.'; return; }
-          var ancien = save;
-          save = { seed: m[0], decisions: m.slice(1), poste: ancien.poste };
-          try { recalculer(); } catch (e) { save = ancien; recalculer(); err.textContent = 'Ligne illisible.'; return; }
-          enregistrer();
-          if (st.fini) { rendreFin(); aller('fin'); } else { rendreHub(); aller('hub'); }
-        }
-      }, 'Adopter'),
+      actions,
+      H('div', { class: 'caisson pile' },
+        H('span', { class: 'etiquette', text: 'Sauvegarde locale' }),
+        H('div', { class: 'petit', text: save.seed ? ('Station ' + save.seed + ' · ' + save.decisions.length + ' décision(s) enregistrée(s)') : 'Aucune station chargée.' }),
+        save.seed ? H('div', { class: 'petit', style: 'font-family:var(--mono);word-break:break-all;color:var(--givre);margin-top:5px', text: 'État ' + B.stateCode(save) }) : null
+      ),
+      H('div', { class: 'note-regle', text: 'PeerJS sert à établir la connexion. Le contenu de la partie est ensuite envoyé directement d’un navigateur à l’autre.' }),
       H('button', { class: 'btn-large btn-discret', onclick: function () { rendreHub(); aller('hub'); } }, 'Retour')
     ));
-    aller('journal');
+    aller('sync');
   }
 
   /* ============================================================
@@ -2332,7 +4110,7 @@ td .att { color: var(--alerte); }
     var texte = st.issue === 'printemps'
       ? 'Le soleil est repassé au-dessus de l\'horizon le ' + B.JOURS_HIVER + 'ᵉ jour. La station tient encore debout, et vous savez exactement à quel prix.'
       : st.issue === 'station'
-        ? 'Trop de systèmes rendus, trop de réparations remises. Il a fallu abandonner Borée en plein hiver.'
+        ? 'Trop de systèmes hors service, trop de réparations restées en suspens. Il a fallu abandonner Borée en plein hiver.'
         : 'Il ne reste plus assez de monde en état de faire tourner la station. L\'hivernage s\'arrête là.';
 
     pile.appendChild(H('div', {},
@@ -2360,9 +4138,7 @@ td .att { color: var(--alerte); }
       pile.appendChild(H('div', { class: 'note-regle', text: 'Un second hivernage repart avec les survivants, une station déjà marquée, et un froid plus dur. Les deux téléphones doivent le lancer, sinon les histoires divergent.' }));
       pile.appendChild(H('button', {
         class: 'btn-large btn-primaire', onclick: function () {
-          save.decisions.push('*');
-          enregistrer(); recalculer();
-          rendreHub(); aller('hub');
+          passerHiver();
         }
       }, 'Hiver ' + (st.annee + 1)));
     }
@@ -2376,14 +4152,170 @@ td .att { color: var(--alerte); }
   }
 
   /* ---------- démarrage ---------- */
+  document.addEventListener('click',function(e){if(e.target&&e.target.hasAttribute&&e.target.hasAttribute('data-menu-close'))fermerMenu();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')fermerMenu();});
+
   function demarrer() {
     neige();
-    if (charger() && save.seed) { try { recalculer(); } catch (e) { save = { seed: null, decisions: [], poste: null }; } }
+    var loaded = charger();
+    p2pSaveShape();
+
+    var joinId = null;
+    try { joinId = new URLSearchParams(location.search).get('join'); } catch (e) { joinId = null; }
+    if (joinId) {
+      save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: String(joinId), peerId: null, storySeen: false };
+      enregistrer();
+      try { window.history.replaceState({}, '', location.pathname + location.hash); } catch (e) {}
+      p2pInit();
+      rendreAttenteConnexion();
+      aller('poste');
+      return;
+    }
+
+    if (loaded && save.seed) {
+      try { recalculer(); } catch (e) { save = { seed: null, decisions: [], poste: null, p2pRole: null, hostPeerId: null, peerId: null, pendingLocal: null, storySeen: true }; }
+    }
+    if (save.p2pRole) p2pInit();
+    if (loaded && save.p2pRole === 'guest' && !save.seed) {
+      rendreAttenteConnexion();
+      aller('poste');
+      return;
+    }
     rendreAccueil();
     aller('accueil');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer);
   else demarrer();
+})();
+</script>
+
+<script id="boree-polish3-js">
+(function(){'use strict';document.addEventListener('pointerdown',function(ev){var t=ev.target&&ev.target.closest?ev.target.closest('button,.resume-card,.menu-item'):null;if(!t||t.disabled)return;t.classList.add('boree-pressed');window.setTimeout(function(){t.classList.remove('boree-pressed')},120)},{passive:true});document.addEventListener('click',function(ev){var t=ev.target&&ev.target.closest?ev.target.closest('button,.resume-card,.menu-item'):null;if(!t||t.disabled)return;t.classList.add('boree-actioned');window.setTimeout(function(){t.classList.remove('boree-actioned')},180)},{passive:true})})();
+</script>
+
+<script id="boree-polish6-js">
+(function(){
+  'use strict';
+  function syncAmbient(){
+    var d=document.documentElement;
+    var screen=d.getAttribute('data-screen')||'accueil';
+    d.setAttribute('data-ambient',screen);
+  }
+  syncAmbient();
+  try{
+    var mo=new MutationObserver(function(m){
+      for(var i=0;i<m.length;i++) if(m[i].attributeName==='data-screen'){syncAmbient();break;}
+    });
+    mo.observe(document.documentElement,{attributes:true,attributeFilter:['data-screen']});
+  }catch(e){}
+})();
+</script>
+
+
+<script id="boree-polish7-js">
+(function(){
+  'use strict';
+  var KEY='boree.sound.v1';
+  var enabled=true, ctx=null, lastScreen=null, pulseTimer=0;
+  try{ var raw=localStorage.getItem(KEY); if(raw!==null) enabled=raw==='1'; }catch(e){}
+
+  function audioCtor(){ return window.AudioContext || window.webkitAudioContext || null; }
+  function ensure(){
+    if(!enabled) return null;
+    if(ctx) return ctx;
+    var C=audioCtor(); if(!C) return null;
+    try{ ctx=new C(); }catch(e){ return null; }
+    return ctx;
+  }
+  function wake(){
+    var c=ensure();
+    if(c && c.state==='suspended'){ try{ c.resume(); }catch(e){} }
+    return c;
+  }
+  function tone(freq,dur,vol,type,delay){
+    var c=ensure(); if(!c) return;
+    try{
+      if(c.state==='suspended') c.resume();
+      var now=c.currentTime+(delay||0);
+      var o=c.createOscillator(), g=c.createGain();
+      o.type=type||'sine'; o.frequency.setValueAtTime(freq,now);
+      g.gain.setValueAtTime(0.0001,now);
+      g.gain.exponentialRampToValueAtTime(Math.max(.0002,vol),now+.008);
+      g.gain.exponentialRampToValueAtTime(.0001,now+dur);
+      o.connect(g); g.connect(c.destination); o.start(now); o.stop(now+dur+.02);
+    }catch(e){}
+  }
+  function haptic(pattern){ try{ if(enabled && navigator.vibrate) navigator.vibrate(pattern); }catch(e){} }
+  function click(kind){
+    if(!enabled) return;
+    if(kind==='primary'){ tone(1040,.055,.028,'triangle'); haptic(8); }
+    else if(kind==='menu'){ tone(520,.07,.018,'sine'); }
+    else if(kind==='choice'){ tone(760,.028,.017,'square'); }
+    else if(kind==='danger'){ tone(210,.12,.025,'sawtooth'); haptic([10,22,10]); }
+    else { tone(1450,.022,.012,'square'); }
+  }
+  function screenCue(screen){
+    if(!enabled || screen===lastScreen) return;
+    lastScreen=screen;
+    if(screen==='crise'){ tone(880,.06,.016,'triangle'); tone(1320,.07,.012,'triangle',.07); }
+    else if(screen==='transmission'){ tone(420,.08,.013,'sine'); tone(620,.055,.009,'sine',.09); }
+    else if(screen==='resolution'){ tone(660,.07,.012,'sine'); tone(990,.11,.013,'triangle',.09); }
+    else if(screen==='progression'){ tone(520,.05,.009,'sine'); }
+  }
+  function visualFeedback(kind){
+    var body=document.body; if(!body) return;
+    clearTimeout(pulseTimer);
+    body.classList.remove('boree-feedback-pulse','boree-feedback-critical');
+    void body.offsetWidth;
+    body.classList.add(kind==='danger'?'boree-feedback-critical':'boree-feedback-pulse');
+    pulseTimer=setTimeout(function(){body.classList.remove('boree-feedback-pulse','boree-feedback-critical');},460);
+  }
+  function setEnabled(v){
+    enabled=!!v;
+    try{localStorage.setItem(KEY,enabled?'1':'0');}catch(e){}
+    if(enabled) wake();
+    renderToggle();
+  }
+  function renderToggle(){
+    var c=document.getElementById('menu-corps'); if(!c) return;
+    var old=c.querySelector('[data-boree-audio-toggle]');
+    if(old) old.remove();
+    var b=document.createElement('button');
+    b.className='boree-audio-toggle'; b.type='button'; b.setAttribute('data-boree-audio-toggle','1');
+    var a=document.createElement('span'); a.textContent='Sons interface';
+    var s=document.createElement('span'); s.textContent=enabled?'ACTIFS':'MUETS';
+    b.appendChild(a); b.appendChild(s);
+    b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();setEnabled(!enabled);click('choice');});
+    c.appendChild(b);
+  }
+  document.addEventListener('pointerdown',function(){ wake(); },{passive:true});
+  document.addEventListener('click',function(ev){
+    var t=ev.target&&ev.target.closest?ev.target.closest('button,.resume-card,.menu-item,.segments button'):null;
+    if(!t || t.disabled || t.hasAttribute('data-boree-audio-toggle')) return;
+    var txt=(t.textContent||'').trim().toLowerCase();
+    if(/valider|appliquer|continuer|créer|rejoindre|hiver/.test(txt)) click('primary');
+    else if(/menu|journal|dossier|progression|synchronisation|règles/.test(txt)) click('menu');
+    else if(t.matches('.segments button,.talent,.resume-card')) click('choice');
+    else click('normal');
+    if(/abandonner|erreur|refusé|critique/.test(txt)){ click('danger'); visualFeedback('danger'); }
+  },{passive:true});
+  try{
+    var root=document.documentElement;
+    lastScreen=root.getAttribute('data-screen');
+    screenCue(lastScreen||'accueil');
+    var mo=new MutationObserver(function(ms){
+      for(var i=0;i<ms.length;i++) if(ms[i].attributeName==='data-screen'){ screenCue(root.getAttribute('data-screen')||'accueil'); break; }
+    });
+    mo.observe(root,{attributes:true,attributeFilter:['data-screen']});
+  }catch(e){}
+  try{
+    var menu=document.getElementById('menu-jeu');
+    if(menu){
+      var mm=new MutationObserver(function(){ if(menu.classList.contains('open')) renderToggle(); });
+      mm.observe(menu,{attributes:true,attributeFilter:['class']});
+    }
+  }catch(e){}
+  window.BoreeAudio={enabled:function(){return enabled;},setEnabled:setEnabled};
 })();
 </script>
 </body>
