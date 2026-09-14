@@ -2386,7 +2386,14 @@ input::placeholder{color:#5d6e80;}
     retryTimer: null,
     snapshotAck: false,
     snapshotTimer: null,
-    submitRetryTimer: null
+    submitRetryTimer: null,
+    submitRetries: 0,
+    resyncTimer: null,
+    resyncTries: 0,
+    reinitTimer: null,
+    idRetries: 0,
+    lastSnapshotSig: null,
+    lastSnapshotAt: 0
   };
 
   function nouveauPeerId() {
@@ -2426,6 +2433,10 @@ input::placeholder{color:#5d6e80;}
     if (save.p2pRole !== 'host' && save.p2pRole !== 'guest') save.p2pRole = null;
     if (save.hostPeerId == null) save.hostPeerId = null;
     if (!save.pendingLocal || typeof save.pendingLocal !== 'object') save.pendingLocal = null;
+    if (!Array.isArray(save.decisions)) save.decisions = [];
+    if (!Array.isArray(save.skillOps)) save.skillOps = [];
+    if (save.poste !== 'tech' && save.poste !== 'equipage' && save.poste !== 'demo') save.poste = save.poste || null;
+    if (save.storySeen !== false) save.storySeen = true;
   }
 
   function p2pStatusText() {
@@ -2482,9 +2493,15 @@ input::placeholder{color:#5d6e80;}
   function p2pDestroy() {
     try { if (net.retryTimer) clearTimeout(net.retryTimer); } catch (e) {}
     try { if (net.snapshotTimer) clearInterval(net.snapshotTimer); } catch (e) {}
+    try { if (net.reinitTimer) clearTimeout(net.reinitTimer); } catch (e) {}
     p2pStopSubmitRetry();
+    p2pStopResyncWatch();
     net.retryTimer = null;
     net.snapshotTimer = null;
+    net.reinitTimer = null;
+    net.idRetries = 0;
+    net.lastSnapshotSig = null;
+    net.lastSnapshotAt = 0;
     net.snapshotAck = false;
     p2pCloseConn();
     try { if (net.peer) net.peer.destroy(); } catch (e) {}
@@ -2684,6 +2701,33 @@ input::placeholder{color:#5d6e80;}
     );
   }
 
+  /*
+   * Mise à jour ciblée de l'état de manche : uniquement du texte, jamais de
+   * reconstruction du DOM. Un paquet réseau ne doit pas détruire les boutons
+   * que le joueur est en train de toucher (bug historique « téléphone qui chauffe »).
+   */
+  function majStatutManche() {
+    if (!st || !cr) return;
+    var meta;
+    try { meta = roundStateMeta(); } catch (e) { return; }
+    try {
+      var lignes = document.querySelectorAll('.boree-turnline');
+      for (var i = 0; i < lignes.length; i++) {
+        var l = lignes[i];
+        l.className = 'boree-turnline ' + meta.cls;
+        var lf = l.querySelector('strong'), ls = l.querySelector('span');
+        if (lf) lf.textContent = meta.label;
+        if (ls) ls.textContent = meta.text;
+      }
+      var att = document.querySelector('.boree-wait-state');
+      if (att) {
+        var af = att.querySelector('strong'), as = att.querySelector('span');
+        if (af) af.textContent = (round.localSubmitted && round.remoteSubmitted) ? 'RÉSOLUTION EN COURS' : 'EN ATTENTE DU PARTENAIRE';
+        if (as) as.textContent = roundReadyText();
+      }
+    } catch (e) {}
+  }
+
   function roundReadyText() {
     if (!cr) return net.connected ? 'En attente de la synchronisation du prochain hiver.' : 'Connexion absente.';
     initialiserRound(false);
@@ -2709,10 +2753,18 @@ input::placeholder{color:#5d6e80;}
     try { if (net.submitRetryTimer) clearInterval(net.submitRetryTimer); } catch (e) {}
     net.submitRetryTimer = null;
     if (net.role !== 'guest' || !net.connected) return;
+    net.submitRetries = 0;
     net.submitRetryTimer = setInterval(function () {
       if (!net.connected || !save.pendingLocal || !save.pendingLocal.submitted || !cr || save.pendingLocal.key !== roundKey()) {
-        try { clearInterval(net.submitRetryTimer); } catch (e) {}
-        net.submitRetryTimer = null;
+        p2pStopSubmitRetry();
+        return;
+      }
+      net.submitRetries++;
+      if (net.submitRetries > 12) {
+        /* Sortie déterministe : plutôt que de retransmettre sans fin, on
+           redemande un état complet à l'hôte. */
+        p2pStopSubmitRetry();
+        p2pSend({ type: 'hello', seed: save.seed || null, poste: save.poste || null, protocol: 4 });
         return;
       }
       p2pResendPending();
@@ -2722,6 +2774,35 @@ input::placeholder{color:#5d6e80;}
   function p2pStopSubmitRetry() {
     try { if (net.submitRetryTimer) clearInterval(net.submitRetryTimer); } catch (e) {}
     net.submitRetryTimer = null;
+    net.submitRetries = 0;
+  }
+
+  /*
+   * Filet de sécurité borné : une fois la décision de l'invité acceptée, le
+   * résultat peut encore se perdre. Toutes les 4 s, au plus 8 fois, on
+   * redemande l'état à l'hôte au lieu de rester bloqué sur « transmission ».
+   * Aucun flux continu, sortie déterministe garantie.
+   */
+  function p2pStopResyncWatch() {
+    try { if (net.resyncTimer) clearInterval(net.resyncTimer); } catch (e) {}
+    net.resyncTimer = null;
+    net.resyncTries = 0;
+  }
+
+  function p2pStartResyncWatch() {
+    p2pStopResyncWatch();
+    if (net.role !== 'guest' || !net.connected || !cr) return;
+    var cle = roundKey();
+    if (!cle) return;
+    net.resyncTimer = setInterval(function () {
+      if (net.role !== 'guest' || !net.connected || !cr || roundKey() !== cle || !round.localSubmitted) {
+        p2pStopResyncWatch();
+        return;
+      }
+      net.resyncTries++;
+      if (net.resyncTries > 8) { p2pStopResyncWatch(); p2pSetStatus(); return; }
+      p2pSend({ type: 'hello', seed: save.seed || null, poste: save.poste || null, protocol: 4 });
+    }, 4000);
   }
 
   function p2pSnapshot(extra) {
@@ -2731,21 +2812,44 @@ input::placeholder{color:#5d6e80;}
       decisions: (save.decisions || []).slice(),
       hostPoste: save.poste || null,
       stateCode: save.seed ? B.stateCode(save) : null,
-      round: roundSnapshot(), skillOps:(save.skillOps||[]).slice()
+      round: roundSnapshot(), skillOps:(save.skillOps||[]).slice(),
+      remotePoste: net.remotePoste || null
     };
     if (extra) Object.keys(extra).forEach(function (k) { m[k] = extra[k]; });
     return m;
   }
 
-  function p2pSendSnapshot() {
+  /*
+   * Un instantané n'est émis que si son contenu a réellement changé.
+   * Sans ce garde-fou, un échange role/snapshot peut boucler indéfiniment
+   * et saturer les deux téléphones.
+   */
+  function p2pSendSnapshot(force) {
     if (net.role !== 'host') return;
-    p2pSend(p2pSnapshot());
+    var m = p2pSnapshot();
+    var sig = [m.seed, (m.decisions || []).length, m.stateCode, m.hostPoste || '-', m.remotePoste || '-',
+      m.round ? m.round.key : '-', m.round ? (m.round.hostReady ? 1 : 0) : '-', m.round ? (m.round.guestReady ? 1 : 0) : '-'].join('/');
+    var maintenant = Date.now();
+    if (!force && sig === net.lastSnapshotSig && (maintenant - net.lastSnapshotAt) < 2000) return;
+    net.lastSnapshotSig = sig;
+    net.lastSnapshotAt = maintenant;
+    p2pSend(m);
   }
 
   function p2pBindConnection(conn, incoming) {
     if (net.conn && net.conn !== conn) {
-      try { conn.close(); } catch (e) {}
-      return;
+      if (incoming) {
+        /* Borée se joue à deux : une connexion entrante remplace toujours
+           l'ancienne. Sans cela, un invité qui recharge sa page (nouvel
+           identifiant PeerJS) reste rejeté tant que l'hôte croit l'ancienne
+           liaison encore ouverte. */
+        var ancienne = net.conn;
+        net.conn = null;
+        try { ancienne.close(); } catch (e) {}
+      } else {
+        try { conn.close(); } catch (e) {}
+        return;
+      }
     }
     net.conn = conn;
     net.connecting = true;
@@ -2757,11 +2861,17 @@ input::placeholder{color:#5d6e80;}
       p2pSetStatus();
       if (net.role === 'host') {
         net.snapshotAck = false;
-        p2pSendSnapshot();
+        net.lastSnapshotSig = null;
+        p2pSendSnapshot(true);
+        /* La liaison revient alors que l'hôte est sur l'écran de secours
+           « code manuel » : il doit pouvoir verrouiller en P2P. */
+        if (ecranCourant === 'transmission' && cr && !round.localSubmitted) {
+          rendreCrise(); aller('crise');
+        }
       } else {
         p2pSend({ type: 'hello', seed: save.seed || null, poste: save.poste || null, protocol: 4 });
         setTimeout(function(){
-          if (p2pResendPending()) p2pStartSubmitRetry();
+          if (p2pResendPending()) { p2pStartSubmitRetry(); p2pStartResyncWatch(); }
         }, 120);
       }
     });
@@ -2771,9 +2881,12 @@ input::placeholder{color:#5d6e80;}
       try { if (net.snapshotTimer) clearInterval(net.snapshotTimer); } catch (e) {}
       net.snapshotTimer = null;
       net.snapshotAck = false;
+      net.lastSnapshotSig = null;
       net.conn = null;
       net.connected = false;
       net.connecting = false;
+      p2pStopSubmitRetry();
+      p2pStopResyncWatch();
       p2pSetStatus();
       if (net.role === 'guest') p2pScheduleGuestRetry(900);
     });
@@ -2840,14 +2953,36 @@ input::placeholder{color:#5d6e80;}
     net.peer.on('disconnected', function () {
       if (!net.connected) net.connecting = false;
       p2pSetStatus();
+      if (net.role === 'host') {
+        /* Le serveur de signalisation ferme la socket dès que le téléphone
+           passe en veille. Sans reconnexion, plus aucun invité ne peut
+           rejoindre ni retrouver la station. */
+        try { net.peer.reconnect(); } catch (e) {}
+        return;
+      }
       if (net.role === 'guest' && save.hostPeerId) {
         try { net.peer.reconnect(); } catch (e) {}
         setTimeout(function () { if (!net.connected) p2pConnectToHost(); }, 350);
         p2pScheduleGuestRetry(1200);
       }
     });
-    net.peer.on('error', function () {
+    net.peer.on('error', function (err) {
       net.connecting = false;
+      var typeErr = err && err.type ? String(err.type) : '';
+      if (net.role === 'host' && typeErr === 'unavailable-id') {
+        /* L'identifiant de station est encore occupé par la session
+           précédente : on retente le même identifiant, sinon le code
+           affiché au binôme ne pointerait plus sur rien. */
+        if (net.idRetries < 3) {
+          net.idRetries++;
+          try { if (net.peer) net.peer.destroy(); } catch (e) {}
+          net.peer = null;
+          try { if (net.reinitTimer) clearTimeout(net.reinitTimer); } catch (e) {}
+          net.reinitTimer = setTimeout(function () { net.reinitTimer = null; p2pInit(); }, 1200 * net.idRetries);
+        }
+        p2pSetStatus();
+        return;
+      }
       if (net.role === 'guest') { p2pCloseConn(); p2pScheduleGuestRetry(900); }
       p2pSetStatus();
     });
@@ -2863,6 +2998,16 @@ input::placeholder{color:#5d6e80;}
 
   function p2pHandleSnapshot(msg) {
     if (net.role !== 'guest' || !msg || !msg.seed) return false;
+    /* On mémorise ce que le joueur est en train de faire AVANT de remplacer
+       l'état : un instantané ne doit jamais lui reprendre son écran ni
+       effacer les choix qu'il vient de poser. */
+    var ancienneCle = round.key;
+    var ancienEcran = ecranCourant;
+    var brouillonLocal = (!round.localSubmitted && round.localDec) ? round.localDec.slice() : null;
+    /* Repère de situation indépendant de la manche : il reste identique tant
+       que la station n'a pas avancé (achat de compétence, reconnexion,
+       poignée de main) et change dès qu'une crise est résolue. */
+    var situationAvant = st ? [save.seed, st.annee, st.session, st.fini ? 1 : 0].join('|') : null;
     if (net.conn && net.conn.open) {
       net.connected = true;
       net.connecting = false;
@@ -2883,8 +3028,12 @@ input::placeholder{color:#5d6e80;}
     }
 
     p2pSend({ type: 'snapshot_ack', seed: save.seed, stateCode: B.stateCode(save) });
-    if (save.poste && round.key) {
-      p2pSend({ type:'role', poste:save.poste });
+    /* Le poste n'est réannoncé que si l'hôte ne le connaît pas encore.
+       Un envoi systématique relance un instantané, qui relance un « role » :
+       c'est exactement la boucle réseau qui faisait chauffer les téléphones. */
+    var posteConnu = (msg.remotePoste === save.poste) || !!(msg.round && msg.round.guestPoste === save.poste);
+    if (save.poste && !posteConnu) {
+      p2pSend({ type: 'role', poste: save.poste });
     }
 
     if (save.storySeen === false) {
@@ -2894,23 +3043,42 @@ input::placeholder{color:#5d6e80;}
     }
 
     initialiserRound(true);
+    var memeManche = !!(ancienneCle && round.key && ancienneCle === round.key);
+    var situationApres = st ? [save.seed, st.annee, st.session, st.fini ? 1 : 0].join('|') : null;
+    var memeSituation = !!(situationAvant && situationApres && situationAvant === situationApres);
+    if (!memeSituation) { p2pStopSubmitRetry(); p2pStopResyncWatch(); }
     if (save.p2pRole === 'guest' && save.pendingLocal && save.pendingLocal.key !== round.key) {
       save.pendingLocal = null;
       enregistrer();
       round.localSubmitted = false;
+    }
+    /* Même manche : on restitue le brouillon en cours de saisie. */
+    if (memeManche && brouillonLocal && cr && !round.localSubmitted && brouillonLocal.length === cr.defaut.length) {
+      indicesDuRole(cr, save.poste).forEach(function (i) { round.localDec[i] = brouillonLocal[i]; });
+      dec = round.localDec;
     }
     if (msg.round && msg.round.key === round.key) {
       round.remoteSubmitted = !!msg.round.hostReady;
       var remoteRole = msg.round.hostPoste && msg.round.hostPoste !== save.poste ? msg.round.hostPoste : (msg.hostPoste && msg.hostPoste !== save.poste ? msg.hostPoste : null);
       if (remoteRole && Array.isArray(msg.round.hostValues)) appliquerBrouillonDistant(msg.round.hostValues, remoteRole, round.key);
     }
+    /* Règle absolue : un message réseau ne reconstruit pas l'écran courant.
+       On ne navigue que si la manche a réellement changé. */
     if (!save.poste) {
       rendrePoste(); aller('poste');
     } else if (st.fini) {
-      rendreFin(); aller('fin');
-    } else {
+      if (ecranCourant !== 'fin' && ecranCourant !== 'journal') { rendreFin(); aller('fin'); }
+    } else if (!memeSituation) {
       rendreHub(); aller('hub');
+    } else if (ancienEcran === 'transmission' && !round.localSubmitted) {
+      /* L'invité était sur l'écran de secours : la liaison est revenue. */
+      rendreCrise(); aller('crise');
+    } else if (ancienEcran === 'progression') {
+      rendreProgression();
+    } else if (ancienEcran === 'hub') {
+      rendreHub();
     }
+    majStatutManche();
     p2pSetStatus();
     return true;
   }
@@ -2923,6 +3091,7 @@ input::placeholder{color:#5d6e80;}
     save.skillOps = Array.isArray(msg.skillOps) ? msg.skillOps.slice() : [];
     save.pendingLocal = null;
     p2pStopSubmitRetry();
+    p2pStopResyncWatch();
     enregistrer();
     try { recalculer(); } catch (e) { return; }
     round.key = null;
@@ -2966,14 +3135,18 @@ input::placeholder{color:#5d6e80;}
 
     if (msg.type === 'hello' && net.role === 'host') {
       if (msg.poste && msg.poste !== save.poste) net.remotePoste = msg.poste;
-      p2pSendSnapshot();
+      /* « hello » est la poignée de main : l'instantané est toujours émis. */
+      p2pSendSnapshot(true);
       p2pSetStatus();
       return;
     }
 
     if (msg.type === 'role' && net.role === 'host') {
+      var posteAvant = net.remotePoste;
       if (msg.poste && msg.poste !== save.poste) net.remotePoste = msg.poste;
-      p2pSendSnapshot();
+      /* Un instantané uniquement si l'information a changé : sinon
+         role → snapshot → role → snapshot boucle sans fin. */
+      if (net.remotePoste !== posteAvant) p2pSendSnapshot(true);
       p2pSetStatus();
       return;
     }
@@ -2982,33 +3155,47 @@ input::placeholder{color:#5d6e80;}
     // La synchronisation intervient uniquement après validation.
 
     if (msg.type === 'submit' && net.role === 'host') {
-      if (!st || !cr || st.fini) return;
+      if (!st) return;
+      /* L'invité peut être resté sur une manche déjà résolue (message
+         « resolved » perdu) : on le resynchronise au lieu de le laisser
+         retransmettre indéfiniment et rester bloqué sur « transmission ». */
+      if (!cr || st.fini || (msg.key && msg.key !== roundKey())) {
+        p2pSend({ type:'submit_ack', key: msg.key || null, accepted:false, resync:true });
+        p2pSendSnapshot(true);
+        return;
+      }
       initialiserRound(false);
       var submitRole = (msg.poste && msg.poste !== save.poste) ? msg.poste : posteOppose(save.poste);
       if (submitRole !== 'tech' && submitRole !== 'equipage') {
-        p2pSend({ type:'submit_ack', key:round.key, accepted:false });
+        p2pSend({ type:'submit_ack', key:round.key, accepted:false, resync:true });
+        p2pSendSnapshot(true);
         return;
       }
       if (!accepterSoumissionDistante(msg.dec, submitRole, msg.key)) {
-        p2pSend({ type:'submit_ack', key:round.key, accepted:false });
+        p2pSend({ type:'submit_ack', key:round.key, accepted:false, resync:true });
+        p2pSendSnapshot(true);
         return;
       }
       net.remotePoste = submitRole;
       p2pSend({ type:'submit_ack', key:round.key, accepted:true, hostReady:!!round.localSubmitted });
+      majStatutManche();
       if (round.localSubmitted) roundResolveHost();
       return;
     }
 
     if (msg.type === 'submit_ack' && net.role === 'guest') {
+      if (msg.resync) { p2pStopSubmitRetry(); return; }
       if (!cr || msg.key !== roundKey()) return;
       if (msg.accepted) p2pStopSubmitRetry();
       round.remoteSubmitted = !!msg.hostReady;
+      majStatutManche();
       return;
     }
 
     if (msg.type === 'round_status' && net.role === 'guest') {
       if (!cr || msg.key !== roundKey()) return;
       round.remoteSubmitted = !!msg.hostReady;
+      majStatutManche();
       return;
     }
 
@@ -3034,11 +3221,24 @@ input::placeholder{color:#5d6e80;}
       if (!st || st.fini || ['tech','equipage','coop'].indexOf(msg.branch)<0) return;
       // Un invité ne peut acheter que les branches qui lui appartiennent
       // (la coopération est partagée). Le serveur hôte reste l'autorité.
-      var branchAllowed = msg.branch === 'coop' || msg.branch === net.remotePoste;
+      /* Juste après une reconnexion, le poste distant peut ne pas encore être
+         renseigné : on retombe sur le poste opposé plutôt que de refuser un
+         achat légitime (l'hôte reste l'autorité, buyTalent valide le reste). */
+      var posteDistant = net.remotePoste || posteOppose(save.poste);
+      var branchAllowed = msg.branch === 'coop' || msg.branch === posteDistant;
       if (!branchAllowed) { p2pSend({type:'error',message:'Branche de compétence non autorisée pour ce poste.'}); return; }
+      /* Les deux postes partagent la branche coopération : viser la même
+         compétence en même temps n'est pas une erreur, on resynchronise. */
+      if (B.talentHas(st, msg.branch, String(msg.id||''))) { p2pSendSnapshot(true); return; }
       var bought=B.buyTalent(st,msg.branch,String(msg.id||''));
-      if(!bought.ok){p2pSend({type:'error',message:'Compétence indisponible ou points insuffisants.'});return;}
-      save.skillOps=Array.isArray(save.skillOps)?save.skillOps:[]; save.skillOps.push({branch:msg.branch,id:String(msg.id)}); save.decisions.push('S:'+msg.branch+':'+String(msg.id)); enregistrer(); p2pSendSnapshot(); rendreHub(); aller('hub'); return;
+      if(!bought.ok){p2pSend({type:'error',message:'Compétence indisponible ou points insuffisants.'});p2pSendSnapshot(true);return;}
+      save.skillOps=Array.isArray(save.skillOps)?save.skillOps:[]; save.skillOps.push({branch:msg.branch,id:String(msg.id)}); save.decisions.push('S:'+msg.branch+':'+String(msg.id)); enregistrer();
+      p2pSendSnapshot(true);
+      /* L'hôte ne doit pas être arraché à son écran par un message réseau :
+         on ne rafraîchit que l'écran réellement affiché. */
+      if (ecranCourant === 'progression') rendreProgression();
+      else if (ecranCourant === 'hub') rendreHub();
+      return;
     }
 
     if (msg.type === 'new_winter' && net.role === 'host') {
@@ -3099,6 +3299,7 @@ input::placeholder{color:#5d6e80;}
           return;
         }
         p2pStartSubmitRetry();
+        p2pStartResyncWatch();
         rendreTransmissionAttente(); aller('transmission');
       }
       return;
@@ -3129,7 +3330,7 @@ input::placeholder{color:#5d6e80;}
     save.decisions.push('*');
     enregistrer();
     recalculer();
-    if (broadcast && net.role === 'host' && net.connected) p2pSendSnapshot();
+    if (broadcast && net.role === 'host' && net.connected) p2pSendSnapshot(true);
     if (st.fini) { rendreFin(); aller('fin'); }
     else { rendreHub(); aller('hub'); }
   }
@@ -3140,7 +3341,8 @@ input::placeholder{color:#5d6e80;}
       rendreTransmissionAttente(); aller('transmission');
       return;
     }
-    passerHiverLocal(false);
+    /* L'hôte doit prévenir l'invité, sinon les deux parties divergent d'un hiver. */
+    passerHiverLocal(true);
   }
 
 
@@ -3330,7 +3532,7 @@ input::placeholder{color:#5d6e80;}
     n.classList.toggle('visible',visible); if(!visible){n.innerHTML='';return;}
     n.innerHTML='';
     var items=[['hub','Station','⌂'],['crise','Crise','!'],['dossier','Dossier','▤'],['journal','Journal','≡']];
-    items.forEach(function(it){var active=ecranCourant===it[0] || (it[0]==='hub'&&['crise','resolution','sync'].indexOf(ecranCourant)>=0);var b=H('button',{class:active?'active':'',onclick:function(){if(it[0]==='hub'){rendreHub();aller('hub');}else if(it[0]==='dossier'){rendreDossier();aller('dossier');}else if(it[0]==='progression'){rendreProgression();aller('progression');}else if(it[0]==='crise'){cr=B.crisisFor(st);dec=cr?cr.defaut.slice():null;rendreCrise();aller('crise');}else{rendreJournal();aller('journal');}}},H('span',{text:it[2]}),H('strong',{text:it[1]}));n.appendChild(b);});
+    items.forEach(function(it){var active=ecranCourant===it[0] || (it[0]==='hub'&&['crise','resolution','sync'].indexOf(ecranCourant)>=0);var b=H('button',{class:active?'active':'',disabled:it[0]==='crise'&&!cr,onclick:function(){if(it[0]==='hub'){rendreHub();aller('hub');}else if(it[0]==='dossier'){rendreDossier();aller('dossier');}else if(it[0]==='progression'){rendreProgression();aller('progression');}else if(it[0]==='crise'){cr=B.crisisFor(st);dec=cr?cr.defaut.slice():null;rendreCrise();aller('crise');}else{rendreJournal();aller('journal');}}},H('span',{text:it[2]}),H('strong',{text:it[1]}));n.appendChild(b);});
   }
 
   /* ============================================================
@@ -3431,8 +3633,8 @@ input::placeholder{color:#5d6e80;}
         class: 'btn-large' + (reprise ? '' : ' btn-primaire'), onclick: function () {
           if (reprise && !confirm('Créer une nouvelle station remplace la partie en cours. Continuer ?')) return;
           p2pDestroy();
-          save = { seed: B.newSeed(), decisions: [], poste: null, p2pRole: 'host', hostPeerId: nouveauPeerId(), peerId: null, pendingLocal: null, progression: B.progressionBase ? B.progressionBase() : {tech:{points:0,unlocked:[]},equipage:{points:0,unlocked:[]},coop:{points:0,unlocked:[]}}, storySeen: false };
-          enregistrer(); p2pInit(); recalculer(); rendreIntro(); aller('intro');
+          save = { seed: B.newSeed(), decisions: [], poste: null, p2pRole: 'host', hostPeerId: nouveauPeerId(), peerId: null, pendingLocal: null, skillOps: [], storySeen: false };
+          p2pSaveShape(); enregistrer(); p2pInit(); recalculer(); rendreIntro(); aller('intro');
         }
       }, 'Créer une station'),
       H('button', { class: 'btn-large btn-discret', onclick: rendreRejoindre }, 'Rejoindre une station'),
@@ -3526,8 +3728,8 @@ input::placeholder{color:#5d6e80;}
           var v = normaliserCodeStation(champ.value);
           if (!v || v.length < 7) { err.textContent = 'Entre un code de station valide.'; return; }
           p2pDestroy();
-          save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: v, peerId: null, pendingLocal: null, storySeen: false };
-          enregistrer();
+          save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: v, peerId: null, pendingLocal: null, skillOps: [], storySeen: false };
+          p2pSaveShape(); enregistrer();
           p2pInit();
           rendreAttenteConnexion(); aller('poste');
         }
@@ -3638,7 +3840,25 @@ input::placeholder{color:#5d6e80;}
   }
 
   function competenceBranche(branch,label){var p=st.progression&&st.progression[branch];if(!p)return H('div');var box=H('div',{class:'caisson pile'},H('div',{class:'rang',style:'justify-content:space-between'},H('span',{class:'etiquette',text:label}),H('span',{class:'petit',text:p.points+' pt'})));var grid=H('div',{class:'talent-grid'});(B.TALENTS[branch]||[]).forEach(function(t){var own=p.unlocked.indexOf(t.id)>=0,can=B.talentCanBuy(st,branch,t.id),locked=t.req.some(function(r){return p.unlocked.indexOf(r)<0;});grid.appendChild(H('button',{class:'talent'+(own?' owned':'')+(locked?' locked':''),disabled:own||!can,onclick:function(){acheterCompetence(branch,t.id);}},H('b',{text:t.nom}),H('span',{text:own?'Acquise':locked?'Prérequis':'Coût '+t.cout}),H('i',{text:t.desc})));});box.appendChild(grid);return box;}
-  function acheterCompetence(branch,id){if(!st||st.fini)return;if(net.connected&&save.p2pRole!=='demo'&&net.role==='guest'){p2pSend({type:'skill_upgrade',branch:branch,id:id});return;}var r=B.buyTalent(st,branch,id);if(!r.ok)return;save.skillOps=Array.isArray(save.skillOps)?save.skillOps:[];save.skillOps.push({branch:branch,id:id});save.decisions.push('S:'+branch+':'+id);enregistrer();if(net.role==='host'&&net.connected)p2pSendSnapshot();rendreHub();}
+  function acheterCompetence(branch,id){
+    if(!st||st.fini)return;
+    if(save.p2pRole==='guest'){
+      /* L'hôte détient la sauvegarde autoritaire : un achat hors ligne
+         ferait diverger les deux téléphones. */
+      if(!net.connected){ alert('Station hôte hors ligne : l’achat de compétence sera possible dès la reconnexion.'); return; }
+      p2pSend({type:'skill_upgrade',branch:branch,id:id});
+      return;
+    }
+    var r=B.buyTalent(st,branch,id);
+    if(!r.ok)return;
+    save.skillOps=Array.isArray(save.skillOps)?save.skillOps:[];
+    save.skillOps.push({branch:branch,id:id});
+    save.decisions.push('S:'+branch+':'+id);
+    enregistrer();
+    if(net.role==='host'&&net.connected)p2pSendSnapshot(true);
+    /* On rafraîchit l'écran réellement affiché, sinon l'achat reste invisible. */
+    if(ecranCourant==='progression')rendreProgression();else rendreHub();
+  }
   function panneauCompetences(){
     var p=H('div',{class:'pile'},
       H('div',{},
@@ -4163,6 +4383,25 @@ input::placeholder{color:#5d6e80;}
 
   function rendreCrise() {
     var box = vide($('ecran-crise'));
+    /* Aucune crise en cours : fin d'hivernage, ou invité en attente de
+       l'instantané de l'hôte. On affiche un écran neutre plutôt que de
+       planter sur cr.titre. */
+    if (!st || !cr) {
+      document.documentElement.setAttribute('data-crise-type', '');
+      box.appendChild(H('div', { class: 'pile' },
+        H('div', {},
+          H('span', { class: 'etiquette', text: 'Station' }),
+          H('h2', { class: 'titre-bloc', text: 'Aucune crise en cours' })
+        ),
+        H('p', { class: 'prose', text: st && st.fini
+          ? 'L’hivernage est terminé. Le bilan reste accessible depuis le poste de commandement.'
+          : 'La prochaine crise n’est pas encore parvenue depuis la station hôte.' }),
+        H('button', { class: 'btn-large btn-primaire', onclick: function () {
+          if (st && st.fini) { rendreFin(); aller('fin'); } else { rendreHub(); aller('hub'); }
+        } }, 'Poste de commandement')
+      ));
+      return;
+    }
     document.documentElement.setAttribute('data-crise-type', cr && cr.type ? cr.type : '');
     var pile = H('div', { class: 'pile crise-scene' });
     pile.appendChild(H('div', {},
@@ -4488,6 +4727,20 @@ input::placeholder{color:#5d6e80;}
   /* ---------- démarrage ---------- */
   document.addEventListener('click',function(e){if(e.target&&e.target.hasAttribute&&e.target.hasAttribute('data-menu-close'))fermerMenu();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape')fermerMenu();});
+  /*
+   * iOS coupe la socket de signalisation dès que l'écran se verrouille.
+   * Au retour en avant-plan, on relance la liaison — une seule fois, sans
+   * timer permanent.
+   */
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden)return;
+    if(!save||!save.p2pRole||save.p2pRole==='demo')return;
+    if(net.connected){p2pSetStatus();return;}
+    if(!net.peer||net.peer.destroyed){p2pInit();p2pSetStatus();return;}
+    try{ if(net.peer.disconnected) net.peer.reconnect(); }catch(e){}
+    if(net.role==='guest')p2pScheduleGuestRetry(400);
+    p2pSetStatus();
+  });
 
   function demarrer() {
     neige();
@@ -4497,8 +4750,8 @@ input::placeholder{color:#5d6e80;}
     var joinId = null;
     try { joinId = new URLSearchParams(location.search).get('join'); } catch (e) { joinId = null; }
     if (joinId) {
-      save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: normaliserCodeStation(String(joinId)), peerId: null, storySeen: false };
-      enregistrer();
+      save = { seed: null, decisions: [], poste: null, p2pRole: 'guest', hostPeerId: normaliserCodeStation(String(joinId)), peerId: null, pendingLocal: null, skillOps: [], storySeen: false };
+      p2pSaveShape(); enregistrer();
       try { window.history.replaceState({}, '', location.pathname + location.hash); } catch (e) {}
       p2pInit();
       rendreAttenteConnexion();
@@ -4507,7 +4760,7 @@ input::placeholder{color:#5d6e80;}
     }
 
     if (loaded && save.seed) {
-      try { recalculer(); } catch (e) { save = { seed: null, decisions: [], poste: null, p2pRole: null, hostPeerId: null, peerId: null, pendingLocal: null, storySeen: true }; }
+      try { recalculer(); } catch (e) { save = { seed: null, decisions: [], poste: null, p2pRole: null, hostPeerId: null, peerId: null, pendingLocal: null, skillOps: [], storySeen: true }; st = null; cr = null; dec = null; try { localStorage.removeItem(CLE); } catch (e2) {} }
     }
     if (save.p2pRole) p2pInit();
     if (loaded && save.p2pRole === 'guest' && !save.seed) {
